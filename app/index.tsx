@@ -196,6 +196,7 @@ export default function Index() {
             <MapView
             style={StyleSheet.absoluteFillObject}
             showsUserLocation
+            mapType="none"
             onPress={(e) => {
                 const c = e.nativeEvent.coordinate
                 mode === "pickup" ? setPickup(c) : setDestination(c)
