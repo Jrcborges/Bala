@@ -208,7 +208,7 @@ export default function Index() {
             }}
             >
                 <UrlTile
-                urlTemplate="https://{s}.title.openstreetmap.org/{z}/{x}/{y}.png"
+                urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     maximumZ={19}
             />
             {pickup && <Marker coordinate={pickup} pinColor="green" />}
