@@ -12,7 +12,7 @@ import {
     View
 } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
-import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps"
+import MapView, { Marker, UrlTile } from "react-native-maps"
 
 /* =========================
     NOTIFICATIONS CONFIG
@@ -194,7 +194,6 @@ export default function Index() {
         <GestureHandlerRootView style={{ flex: 1 }}>
         <View style={{ flex: 1 }}>
             <MapView
-            provider={PROVIDER_DEFAULT}
             style={StyleSheet.absoluteFillObject}
             showsUserLocation
             onPress={(e) => {
@@ -208,6 +207,10 @@ export default function Index() {
                 longitudeDelta: 0.01,
             }}
             >
+                <UrlTile
+                urlTemplate="https://{s}.title.openstreetmap.org/{z}/{x}/{y}.png"
+                    maximumZ={19}
+            />
             {pickup && <Marker coordinate={pickup} pinColor="green" />}
             {destination && <Marker coordinate={destination} pinColor="#FF6A00" />}
             </MapView>
