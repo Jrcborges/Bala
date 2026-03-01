@@ -1,30 +1,25 @@
 import { AuthProvider, useAuth } from '@/providers/AuthProviders'
-import { Stack } from 'expo-router'
+import { Redirect, Slot } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 function RootNavigator() {
-    const { session, loading } = useAuth()
+  const { session, loading } = useAuth()
 
-    console.log(session)
-    if (loading) return null
+  if (loading) return null
 
-    return (
-        <Stack screenOptions={{headerShown:false}}>
-            {!session?(
-                <Stack.Screen name="(auth)"/>
-            ):(
-                <Stack.Screen name="index"/>
-            )}
-        </Stack>
-    );
+  if (!session) {
+    return <Redirect href="/(auth)/login" />
+  }
+
+  return <Slot />
 }
 
 export default function RootLayout() {
-    return (
-        <AuthProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <RootNavigator />
-        </GestureHandlerRootView>
-        </AuthProvider>
-    )
+  return (
+    <AuthProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <RootNavigator />
+      </GestureHandlerRootView>
+    </AuthProvider>
+  )
 }
