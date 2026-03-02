@@ -58,7 +58,6 @@ MapLibreGL.setAccessToken(null)
 
 export default function Index() {
   const {session}=useAuth()
-  if (!session) return null
   const [user, setUser] = useState<any>(null)
   const [pickup, setPickup] = useState<any>(null)
   const [destination, setDestination] = useState<any>(null)
