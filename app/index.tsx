@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/providers/AuthProviders"
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet"
 import MapLibreGL from "@maplibre/maplibre-react-native"
 import * as Location from "expo-location"
@@ -56,6 +57,8 @@ const estimateDriverEta = (vehicle: Vehicle) => {
 MapLibreGL.setAccessToken(null)
 
 export default function Index() {
+  const {session}=useAuth()
+  if (!session) return null
   const [user, setUser] = useState<any>(null)
   const [pickup, setPickup] = useState<any>(null)
   const [destination, setDestination] = useState<any>(null)

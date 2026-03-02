@@ -1,5 +1,5 @@
 import { AuthProvider, useAuth } from '@/providers/AuthProviders'
-import { Redirect, Slot } from 'expo-router'
+import { Slot } from 'expo-router'
 import { Text } from "react-native"
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
@@ -14,9 +14,7 @@ function RootNavigator() {
     )
   }
 
-  if (!session) {
-    return <Redirect href="/(auth)/login" />
-  }
+
 
   return <Slot />
 }
