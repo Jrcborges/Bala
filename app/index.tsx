@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native"
-import { GestureHandlerRootView } from "react-native-gesture-handler"
 
 type Vehicle = "motor" | "carro" | "triciclo"
 type Mode = "pickup" | "destination"
@@ -211,7 +210,7 @@ export default function Index() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    //<GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
         <MapLibreGL.MapView
           style={[StyleSheet.absoluteFillObject,{zIndex: 0}]} 
@@ -339,7 +338,7 @@ export default function Index() {
           </BottomSheetView>
         </BottomSheet>
       </View>
-    </GestureHandlerRootView>
+    //</GestureHandlerRootView>
   )
 }
 
