@@ -214,7 +214,7 @@ export default function Index() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
         <MapLibreGL.MapView
-          style={StyleSheet.absoluteFillObject}
+          style={[StyleSheet.absoluteFillObject,{zIndex: 0}]} 
           logoEnabled={false}
           attributionEnabled={false}
           onPress={(e) => {
@@ -276,7 +276,7 @@ export default function Index() {
           </MapLibreGL.RasterSource>
         </MapLibreGL.MapView>
 
-        <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints}>
+        <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints} style={{ zIndex: 10 }}>
           <BottomSheetView style={styles.container}>
             {ride && (
               <Text style={styles.status}>
