@@ -276,7 +276,7 @@ export default function Index() {
           </MapLibreGL.RasterSource>
         </MapLibreGL.MapView>
 
-        <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints} style={{ zIndex: 10 }}>
+        <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints} style={{ zIndex: 10 ,elevation: 10}}>
           <BottomSheetView style={styles.container}>
             {ride && (
               <Text style={styles.status}>
