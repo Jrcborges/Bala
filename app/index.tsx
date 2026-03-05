@@ -14,8 +14,17 @@ import {
   View,
 } from "react-native"
 
-/* ====== UTILS ====== */
+/* ===== TYPES ===== */
+type Vehicle = "motor" | "carro" | "triciclo"
+
+type Coords = {
+  latitude: number
+  longitude: number
+}
+
+/* ===== UTILS ===== */
 const toRad = (v: number) => (v * Math.PI) / 180
+
 const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371
   const dLat = toRad(lat2 - lat1)
@@ -26,28 +35,18 @@ const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) =
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
 }
 
-
-
-type Vehicle = "motor" | "carro" | "triciclo"
-
-
-
 const estimateTimeMinutes = (distanceKm: number, vehicle: Vehicle) => {
   const speeds = { motor: 22, carro: 18, triciclo: 15 }
   return Math.round(((distanceKm / speeds[vehicle]) * 60) * 1.2)
 }
+
 const estimateDriverEta = (vehicle: Vehicle) => {
   const avgKm = { motor: 1.2, carro: 1.8, triciclo: 1.5 }
   return estimateTimeMinutes(avgKm[vehicle], vehicle)
 }
 
-
-
-
-
 MapLibreGL.setAccessToken(null)
 
-/* ====== NOTIFICATIONS CONFIG ====== */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -59,42 +58,46 @@ Notifications.setNotificationHandler({
 
 export default function Index() {
   const { session } = useAuth()
+
   const [user, setUser] = useState<any>(null)
-  const [pickup, setPickup] = useState<any>(null)
-  const [destination, setDestination] = useState<any>(null)
-  const [userLocation, setUserLocation] = useState<any>(null)
-  const [vehicle, setVehicle] = useState<any>(null)
+  const [pickup, setPickup] = useState<Coords | null>(null)
+  const [destination, setDestination] = useState<Coords | null>(null)
+  const [userLocation, setUserLocation] = useState<Coords | null>(null)
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null)
   const [addressText, setAddressText] = useState("")
   const [ride, setRide] = useState<any>(null)
   const [loading, setLoading] = useState(false)
-  const [searchFocused, setSearchFocused] = useState(false)
 
   const sheetRef = useRef<BottomSheet>(null)
   const snapPoints = useMemo(() => ["20%", "55%"], [])
 
-  /* ====== AUTH + PUSH TOKEN ====== */
+  /* ===== AUTH ===== */
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) setUser(data.user)
     })
   }, [])
 
-  /* ====== USER LOCATION ====== */
+  /* ===== LOCATION ===== */
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== "granted") return
 
       const loc = await Location.getCurrentPositionAsync({})
-      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude }
+      const coords = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      }
+
       setPickup(coords)
       setUserLocation(coords)
     })()
   }, [])
 
-  /* ====== PRICE ====== */
+  /* ===== PRICE ===== */
   const calculatePrice = () => {
-    if (!pickup || !destination || !vehicle===null) return 0
+    if (!pickup || !destination || vehicle === null) return 0
 
     const km = getDistanceKm(
       pickup.latitude,
@@ -102,19 +105,22 @@ export default function Index() {
       destination.latitude,
       destination.longitude
     )
-    const pricing :Record<Vehicle,{base:number;perKm:number;min:number}>= {
+
+    const pricing: Record<Vehicle, { base: number; perKm: number; min: number }> = {
       motor: { base: 100, perKm: 35, min: 150 },
       carro: { base: 150, perKm: 60, min: 300 },
       triciclo: { base: 120, perKm: 45, min: 200 },
     }
-    const { base, perKm, min } = pricing[vehicle as Vehicle]
+
+    const { base, perKm, min } = pricing[vehicle]
     const price = Math.round(base + km * perKm)
     return price < min ? min : price
   }
 
-  /* ====== CREATE RIDE ====== */
+  /* ===== CREATE RIDE ===== */
   const createRide = async () => {
     if (!user || !pickup || !destination || !vehicle) return
+
     setLoading(true)
 
     const distanceKm = getDistanceKm(
@@ -140,39 +146,46 @@ export default function Index() {
     })
 
     setLoading(false)
-    setAddressText("")
-    setVehicle(null)
     setRide({ status: "pending" })
+    setVehicle(null)
   }
 
-  /* ====== MAP PRESS ====== */
-  const onMapPress = (coords: { latitude: number; longitude: number }) => {
-    if (!pickup) setPickup(coords)
-    else setDestination(coords)
+  /* ===== MAP PRESS ===== */
+  const onMapPress = (e: any) => {
+    if (e.geometry?.type === "Point") {
+      const coords = e.geometry.coordinates
+      const selected = { latitude: coords[1], longitude: coords[0] }
+
+      if (!pickup) setPickup(selected)
+      else setDestination(selected)
+    }
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#000" }}>
-      {/* MAPA */}
+    <View style={{ flex: 1 }}>
       <MapLibreGL.MapView
         style={StyleSheet.absoluteFillObject}
         logoEnabled={false}
         attributionEnabled={false}
-        onPress={(e) => {
-          if (e.geometry?.type === "Point") {
-            const coords = e.geometry.coordinates
-            onMapPress({ latitude: coords[1], longitude: coords[0] })
-          }
-        }}
+        onPress={onMapPress}
       >
+        {/* CAMERA */}
+        <MapLibreGL.Camera
+          zoomLevel={14}
+          centerCoordinate={
+            userLocation
+              ? [userLocation.longitude, userLocation.latitude]
+              : [-75.8267, 20.0247] // Santiago fallback
+          }
+        />
+
+        {/* OPENSTREETMAP */}
         <MapLibreGL.RasterSource
-          id="darkMap"
-          tileUrlTemplates={[
-            "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png",
-          ]}
+          id="osm"
+          tileUrlTemplates={["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]}
           tileSize={256}
         >
-          <MapLibreGL.RasterLayer id="darkLayer" sourceID="darkMap" />
+          <MapLibreGL.RasterLayer id="osmLayer" sourceID="osm" />
         </MapLibreGL.RasterSource>
 
         {pickup && (
@@ -183,6 +196,7 @@ export default function Index() {
             <View style={styles.markerPickup} />
           </MapLibreGL.PointAnnotation>
         )}
+
         {destination && (
           <MapLibreGL.PointAnnotation
             id="destination"
@@ -193,23 +207,7 @@ export default function Index() {
         )}
       </MapLibreGL.MapView>
 
-      {/* Botones flotantes */}
-      <TouchableOpacity style={styles.menuButton}>
-        <Text style={styles.icon}>☰</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.bellButton}>
-        <Text style={styles.icon}>🔔</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.locateButton}
-        onPress={() => setPickup(userLocation)}
-      >
-        <Text style={styles.icon}>📍</Text>
-      </TouchableOpacity>
-
-      {/* Campo "¿A dónde vamos?" */}
+      {/* SEARCH */}
       <View style={styles.searchBar}>
         <TextInput
           placeholder="¿A dónde vamos?"
@@ -217,24 +215,18 @@ export default function Index() {
           style={styles.searchInput}
           value={addressText}
           onChangeText={setAddressText}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
         />
       </View>
 
-      {/* Bottom Sheet */}
+      {/* BOTTOM SHEET */}
       <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints}>
         <BottomSheetView style={styles.sheet}>
           {ride ? (
-            <Text style={styles.statusText}>
-              {ride.status === "pending"
-                ? "🔍 Buscando transporte..."
-                : "🚗 En camino"}
-            </Text>
+            <Text style={styles.statusText}>🔍 Buscando transporte...</Text>
           ) : (
             <>
               <View style={styles.vehicleRow}>
-                {["motor", "carro", "triciclo"].map((v) => (
+                {(["motor", "carro", "triciclo"] as Vehicle[]).map((v) => (
                   <TouchableOpacity
                     key={v}
                     style={[
@@ -251,7 +243,7 @@ export default function Index() {
               <TouchableOpacity
                 style={[
                   styles.confirmBtn,
-                  !destination && { opacity: 0.4 },
+                  (!destination || !vehicle) && { opacity: 0.4 },
                 ]}
                 onPress={createRide}
                 disabled={!destination || !vehicle}
@@ -275,37 +267,6 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  icon: { fontSize: 20 },
-  menuButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 30,
-    elevation: 5,
-    zIndex: 20,
-  },
-  bellButton: {
-    position: "absolute",
-    top: 50,
-    right: 20,
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 30,
-    elevation: 5,
-    zIndex: 20,
-  },
-  locateButton: {
-    position: "absolute",
-    bottom: 180,
-    right: 20,
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 30,
-    elevation: 5,
-    zIndex: 20,
-  },
   searchBar: {
     position: "absolute",
     top: 110,
@@ -315,16 +276,10 @@ const styles = StyleSheet.create({
     width: "90%",
     paddingHorizontal: 15,
     paddingVertical: 10,
-    zIndex: 15,
+    zIndex: 10,
   },
-  searchInput: {
-    color: "#fff",
-    fontSize: 16,
-  },
-  sheet: {
-    padding: 20,
-    backgroundColor: "#1C1C1E",
-  },
+  searchInput: { color: "#fff", fontSize: 16 },
+  sheet: { padding: 20, backgroundColor: "#1C1C1E" },
   vehicleRow: {
     flexDirection: "row",
     justifyContent: "space-around",
