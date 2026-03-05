@@ -245,7 +245,7 @@ export default function Index() {
 
       <View style={styles.centerMarkerContainer}>
         <Image
-          source={require("@/assets/pin.png")}
+          source={require("../assets/images/pin.png")}
           style={styles.centerMarker}
         />
       </View>
