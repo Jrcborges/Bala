@@ -213,7 +213,7 @@ export default function Index() {
       <MapLibreGL.MapView
         ref={mapRef}
         style={{ flex: 1 }}
-        mapStyle={require("@/assets/uber-minimal.json")}
+        //mapStyle={require("@/assets/uber-minimal.json")}
         logoEnabled={false}
         attributionEnabled={false}
       >
