@@ -1,180 +1,102 @@
 import { supabase } from "@/lib/supabase"
-import { Ionicons } from "@expo/vector-icons"
-import BottomSheet from "@gorhom/bottom-sheet"
-import MapLibreGL from "@maplibre/maplibre-react-native"
-import * as Location from "expo-location"
-import { useEffect, useMemo, useRef, useState } from "react"
-import {
-    Dimensions,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native"
+import { useRouter } from "expo-router"
+import { useState } from "react"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 
-MapLibreGL.setAccessToken(null)
+export default function LoginScreen() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
-const { width, height } = Dimensions.get("window")
+  const handleLogin = async () => {
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    setLoading(false)
 
-export default function Index() {
-  const sheetRef = useRef<BottomSheet>(null)
-  const snapPoints = useMemo(() => ["20%", "45%"], [])
-
-  const [userLocation, setUserLocation] = useState<any>(null)
-  const [cameraCenter, setCameraCenter] = useState<any>(null)
-  const [mode, setMode] = useState<"pickup" | "destination">("pickup")
-
-  useEffect(() => {
-    ;(async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== "granted") return
-
-      const location = await Location.getCurrentPositionAsync({})
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      }
-
-      setUserLocation(coords)
-      setCameraCenter(coords)
-    })()
-  }, [])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
+    if (error) Alert.alert("Error", error.message)
+    // Si inicia bien, RootNavigator detectará la sesión y redirigirá a "/"
   }
 
-  if (!userLocation) return null
-
   return (
-    <View style={{ flex: 1 }}>
-      <MapLibreGL.MapView
-        style={{ flex: 1 }}
-        logoEnabled={false}
-        attributionEnabled={false}
-        onRegionDidChange={(e) => {
-          const coords = e.geometry.coordinates
-          if (coords) {
-            setCameraCenter({
-              latitude: coords[1],
-              longitude: coords[0],
-            })
-          }
-        }}
-      >
-        <MapLibreGL.Camera
-          zoomLevel={15}
-          centerCoordinate={[
-            cameraCenter.longitude,
-            cameraCenter.latitude,
-          ]}
-        />
+    <View style={styles.container}>
+      <Text style={styles.title}>Iniciar sesión</Text>
 
-        <MapLibreGL.RasterSource
-          id="osm"
-          tileUrlTemplates={[
-            "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-          ]}
-          tileSize={256}
-        >
-          <MapLibreGL.RasterLayer id="osmLayer" sourceID="osm" />
-        </MapLibreGL.RasterSource>
-      </MapLibreGL.MapView>
+      <TextInput
+        placeholder="Correo electrónico"
+        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
 
-      {/* Pin centrado estilo Uber */}
-      <View pointerEvents="none" style={styles.centerMarker}>
-        <Ionicons
-          name="location-sharp"
-          size={40}
-          color={mode === "pickup" ? "green" : "#FF6A00"}
-        />
-      </View>
+      <TextInput
+        placeholder="Contraseña"
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
 
-      {/* Botón centrar ubicación */}
       <TouchableOpacity
-        style={styles.locateButton}
-        onPress={() => setCameraCenter(userLocation)}
+        style={[styles.button, loading && { opacity: 0.5 }]}
+        onPress={handleLogin}
+        disabled={loading}
       >
-        <Ionicons name="locate" size={22} color="#000" />
+        <Text style={styles.buttonText}>
+          {loading ? "Ingresando..." : "Entrar"}
+        </Text>
       </TouchableOpacity>
 
-      {/* Bottom Sheet */}
-      <BottomSheet ref={sheetRef} snapPoints={snapPoints} index={0}>
-        <View style={styles.sheetContent}>
-          <Text style={styles.title}>
-            {mode === "pickup"
-              ? "Selecciona punto de recogida"
-              : "Selecciona destino"}
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              mode === "pickup" && styles.activeButton,
-            ]}
-            onPress={() => setMode("pickup")}
-          >
-            <Text style={styles.buttonText}>Pickup</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              mode === "destination" && styles.activeButton,
-            ]}
-            onPress={() => setMode("destination")}
-          >
-            <Text style={styles.buttonText}>Destination</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logout} onPress={handleLogout}>
-            <Text style={{ color: "red" }}>Cerrar sesión</Text>
-          </TouchableOpacity>
-        </View>
-      </BottomSheet>
+      <TouchableOpacity
+        style={{ marginTop: 20 }}
+        onPress={() => router.push("/(auth)/register")}
+      >
+        <Text style={styles.link}>
+          ¿No tienes cuenta? Regístrate aquí
+        </Text>
+      </TouchableOpacity>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  centerMarker: {
-    position: "absolute",
-    top: height / 2 - 20,
-    left: width / 2 - 20,
-  },
-  locateButton: {
-    position: "absolute",
-    right: 20,
-    bottom: 180,
-    backgroundColor: "white",
-    padding: 12,
-    borderRadius: 30,
-    elevation: 5,
-  },
-  sheetContent: {
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
+    backgroundColor: "#fff",
   },
   title: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
+    marginBottom: 40,
+  },
+  input: {
+    width: "100%",
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
     marginBottom: 15,
   },
-  modeButton: {
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: "#eee",
-    marginBottom: 10,
-  },
-  activeButton: {
+  button: {
     backgroundColor: "#000",
+    padding: 15,
+    borderRadius: 10,
+    width: "100%",
   },
   buttonText: {
-    textAlign: "center",
-    color: "#000",
+    color: "#fff",
     fontWeight: "bold",
+    textAlign: "center",
   },
-  logout: {
-    marginTop: 20,
-    alignItems: "center",
+  link: {
+    color: "#007AFF",
+    fontWeight: "bold",
   },
 })

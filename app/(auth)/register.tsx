@@ -1,58 +1,124 @@
-import { supabase } from '@/lib/supabase'
-import { useRouter } from 'expo-router'
-import { useState } from 'react'
-import { Button, Pressable, Text, TextInput, View } from 'react-native'
+import { supabase } from "@/lib/supabase"
+import { useRouter } from "expo-router"
+import { useState } from "react"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 
-export default function Register() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const router = useRouter()
+export default function RegisterScreen() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
-    const onRegister = async () => {
-        const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        })
-
-        if (error) {
-        alert(error.message)
-        return
-        }
-
-        alert('Cuenta creada correctamente')
-        
+  const handleRegister = async () => {
+    if (!email || !password) {
+      return Alert.alert("Error", "Por favor llena todos los campos")
     }
 
-    return (
-        <View style={{ padding: 20,paddingTop:250 }}>
-        <Text style={{ fontSize: 28, fontWeight: 'bold', marginBottom: 20 }}>
-            Crear cuenta
+    if (password !== confirmPassword) {
+      return Alert.alert("Error", "Las contraseñas no coinciden")
+    }
+
+    setLoading(true)
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+    setLoading(false)
+
+    if (error) {
+      Alert.alert("Error", error.message)
+    } else {
+      Alert.alert(
+        "Cuenta creada",
+        "Revisa tu correo para confirmar tu cuenta antes de iniciar sesión."
+      )
+      router.push("/(auth)/login")
+    }
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Crear cuenta</Text>
+
+      <TextInput
+        placeholder="Correo electrónico"
+        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
+
+      <TextInput
+        placeholder="Contraseña"
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+
+      <TextInput
+        placeholder="Confirmar contraseña"
+        style={styles.input}
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry
+      />
+
+      <TouchableOpacity
+        style={[styles.button, loading && { opacity: 0.5 }]}
+        onPress={handleRegister}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? "Creando cuenta..." : "Registrarse"}
         </Text>
+      </TouchableOpacity>
 
-        <Text>Email</Text>
-        <TextInput
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            style={{ borderWidth: 1, padding: 10, marginBottom: 15 }}
-        />
-
-        <Text>Password</Text>
-        <TextInput
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            style={{ borderWidth: 1, padding: 10, marginBottom: 20 }}
-        />
-
-        <Button title="Crear cuenta" onPress={onRegister} />
-
-        {/* Volver al login */}
-        <Pressable onPress={() => router.back()}>
-            <Text style={{ marginTop: 20, textAlign: 'center' }}>
-            ¿Ya tienes cuenta? <Text style={{ fontWeight: 'bold' }}>Inicia sesión</Text>
-            </Text>
-        </Pressable>
-        </View>
-    )
+      <TouchableOpacity
+        style={{ marginTop: 20 }}
+        onPress={() => router.push("/(auth)/login")}
+      >
+        <Text style={styles.link}>¿Ya tienes cuenta? Inicia sesión</Text>
+      </TouchableOpacity>
+    </View>
+  )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 40,
+  },
+  input: {
+    width: "100%",
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  button: {
+    backgroundColor: "#000",
+    padding: 15,
+    borderRadius: 10,
+    width: "100%",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  link: {
+    color: "#007AFF",
+    fontWeight: "bold",
+  },
+})
