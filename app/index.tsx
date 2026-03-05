@@ -11,27 +11,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native"
 
-type Vehicle = "motor" | "carro" | "triciclo"
-type Mode = "pickup" | "destination"
-
-/* =========================
-   NOTIFICATIONS CONFIG
-========================= */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound:true,
-    shouldSetBadge: false,
-  }),
-})
-
-/* =========================
-   DISTANCE + TIME
-========================= */
+/* ====== UTILS ====== */
 const toRad = (v: number) => (v * Math.PI) / 180
 const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371
@@ -39,11 +22,16 @@ const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) =
   const dLon = toRad(lon2 - lon1)
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-    Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) ** 2
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
 }
+
+
+
+type Vehicle = "motor" | "carro" | "triciclo"
+
+
+
 const estimateTimeMinutes = (distanceKm: number, vehicle: Vehicle) => {
   const speeds = { motor: 22, carro: 18, triciclo: 15 }
   return Math.round(((distanceKm / speeds[vehicle]) * 60) * 1.2)
@@ -53,54 +41,47 @@ const estimateDriverEta = (vehicle: Vehicle) => {
   return estimateTimeMinutes(avgKm[vehicle], vehicle)
 }
 
+
+
+
+
 MapLibreGL.setAccessToken(null)
 
+/* ====== NOTIFICATIONS CONFIG ====== */
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+})
+
 export default function Index() {
-  const {session}=useAuth()
+  const { session } = useAuth()
   const [user, setUser] = useState<any>(null)
   const [pickup, setPickup] = useState<any>(null)
   const [destination, setDestination] = useState<any>(null)
   const [userLocation, setUserLocation] = useState<any>(null)
-  const [mode, setMode] = useState<Mode>("destination")
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null)
+  const [vehicle, setVehicle] = useState<any>(null)
   const [addressText, setAddressText] = useState("")
   const [ride, setRide] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [searchFocused, setSearchFocused] = useState(false)
 
   const sheetRef = useRef<BottomSheet>(null)
-  const snapPoints = useMemo(() => ["20%", "55%", "90%"], [])
+  const snapPoints = useMemo(() => ["20%", "55%"], [])
 
-  /* =========================
-      AUTH + PUSH TOKEN
-  ========================== */
+  /* ====== AUTH + PUSH TOKEN ====== */
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUser(data.user)
-        registerForPush().then((token) => {
-          if (token) {
-            supabase
-              .from("profiles")
-              .update({ push_token: token })
-              .eq("id", data.user.id)
-          }
-        })
-      }
+      if (data.user) setUser(data.user)
     })
   }, [])
 
-  const registerForPush = async () => {
-    const { status } = await Notifications.requestPermissionsAsync()
-    if (status !== "granted") return null
-    return (await Notifications.getExpoPushTokenAsync()).data
-  }
-
-  /* =========================
-      USER LOCATION
-  ========================== */
+  /* ====== USER LOCATION ====== */
   useEffect(() => {
-    let locationSubscription: Location.LocationSubscription
-    ;(async () => {
+    (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== "granted") return
 
@@ -108,64 +89,30 @@ export default function Index() {
       const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude }
       setPickup(coords)
       setUserLocation(coords)
-
-      locationSubscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Highest, distanceInterval: 5 },
-        (locUpdate) => {
-          const newCoords = { latitude: locUpdate.coords.latitude, longitude: locUpdate.coords.longitude }
-          setUserLocation(newCoords)
-          if (mode === "pickup") setPickup(newCoords)
-        }
-      )
     })()
-
-    return () => {
-      if (locationSubscription) locationSubscription.remove()
-    }
   }, [])
 
-  /* =========================
-      RIDE STATUS LISTENER
-  ========================== */
-  useEffect(() => {
-    if (!ride) return
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from("rides")
-        .select("status, driver_eta_min")
-        .eq("id", ride.id)
-        .single()
-      if (data && data.status !== ride.status) {
-        setRide((prev: any) => ({ ...prev, ...data }))
-      }
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [ride])
-
-  /* =========================
-      PRICE
-  ========================== */
+  /* ====== PRICE ====== */
   const calculatePrice = () => {
-    if (!pickup || !destination || !vehicle) return 0
+    if (!pickup || !destination || !vehicle===null) return 0
+
     const km = getDistanceKm(
       pickup.latitude,
       pickup.longitude,
       destination.latitude,
       destination.longitude
     )
-    const pricing = {
+    const pricing :Record<Vehicle,{base:number;perKm:number;min:number}>= {
       motor: { base: 100, perKm: 35, min: 150 },
       carro: { base: 150, perKm: 60, min: 300 },
       triciclo: { base: 120, perKm: 45, min: 200 },
     }
-    const { base, perKm, min } = pricing[vehicle]
+    const { base, perKm, min } = pricing[vehicle as Vehicle]
     const price = Math.round(base + km * perKm)
     return price < min ? min : price
   }
 
-  /* =========================
-      CREATE RIDE
-  ========================== */
+  /* ====== CREATE RIDE ====== */
   const createRide = async () => {
     if (!user || !pickup || !destination || !vehicle) return
     setLoading(true)
@@ -177,203 +124,244 @@ export default function Index() {
       destination.longitude
     )
 
-    const { data, error } = await supabase
-      .from("rides")
-      .insert({
-        client_id: user.id,
-        origin_lat: pickup.latitude,
-        origin_lng: pickup.longitude,
-        dest_lat: destination.latitude,
-        dest_lng: destination.longitude,
-        pickup_address: mode === "pickup" ? addressText : null,
-        destination_address: mode === "destination" ? addressText : null,
-        vehicle_type: vehicle,
-        distance_km: distanceKm,
-        estimated_time_min: estimateTimeMinutes(distanceKm, vehicle),
-        driver_eta_min: estimateDriverEta(vehicle),
-        price: calculatePrice(),
-        payment_method: "cash",
-        status: "pending",
-      })
-      .select()
-      .single()
+    await supabase.from("rides").insert({
+      client_id: user.id,
+      origin_lat: pickup.latitude,
+      origin_lng: pickup.longitude,
+      dest_lat: destination.latitude,
+      dest_lng: destination.longitude,
+      vehicle_type: vehicle,
+      distance_km: distanceKm,
+      estimated_time_min: estimateTimeMinutes(distanceKm, vehicle),
+      driver_eta_min: estimateDriverEta(vehicle),
+      price: calculatePrice(),
+      payment_method: "cash",
+      status: "pending",
+    })
 
     setLoading(false)
-    if (!error) setRide(data)
+    setAddressText("")
+    setVehicle(null)
+    setRide({ status: "pending" })
   }
 
-  /* =========================
-      MAP HANDLER
-  ========================== */
+  /* ====== MAP PRESS ====== */
   const onMapPress = (coords: { latitude: number; longitude: number }) => {
-    mode === "pickup" ? setPickup(coords) : setDestination(coords)
+    if (!pickup) setPickup(coords)
+    else setDestination(coords)
   }
 
   return (
-    //<GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
-        <MapLibreGL.MapView
-          style={[StyleSheet.absoluteFillObject,{zIndex: 0}]} 
-          logoEnabled={false}
-          attributionEnabled={false}
-          onPress={(e) => {
-            if(e.geometry.type === "Point"){
-              const coords = e.geometry.coordinates
-              if (coords && coords.length >= 2) {
-                onMapPress({ latitude: coords[1], longitude: coords[0] })
-              }
-          }}}
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      {/* MAPA */}
+      <MapLibreGL.MapView
+        style={StyleSheet.absoluteFillObject}
+        logoEnabled={false}
+        attributionEnabled={false}
+        onPress={(e) => {
+          if (e.geometry?.type === "Point") {
+            const coords = e.geometry.coordinates
+            onMapPress({ latitude: coords[1], longitude: coords[0] })
+          }
+        }}
+      >
+        <MapLibreGL.RasterSource
+          id="darkMap"
+          tileUrlTemplates={[
+            "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png",
+          ]}
+          tileSize={256}
         >
-          {userLocation && (
-            <MapLibreGL.Camera
-              centerCoordinate={[userLocation.longitude, userLocation.latitude]}
-              zoomLevel={16}
-              followUserLocation
-            />
-          )}
+          <MapLibreGL.RasterLayer id="darkLayer" sourceID="darkMap" />
+        </MapLibreGL.RasterSource>
 
-          {pickup && (
-            <MapLibreGL.PointAnnotation
-              id="pickup"
-              coordinate={[pickup.longitude, pickup.latitude]}
-            >
-              <View
-                style={{
-                  width:20,
-                  height:20,
-                  backgroundColor:"#FF6A00",
-                  borderRadius:10,
-                  borderWidth:2,
-                  borderColor:"#fff"
-                }}
-            /></MapLibreGL.PointAnnotation>
-          )}
-          {destination && (
-            <MapLibreGL.PointAnnotation
-              id="destination"
-              coordinate={[destination.longitude, destination.latitude]}
-            >
-              <View
-                style={{
-                  width:20,
-                  height:20,
-                  backgroundColor:"#000",
-                  borderRadius:10,
-                  borderWidth:2,
-                  borderColor:"#fff"
-                }}
-            />
-            </MapLibreGL.PointAnnotation>
-          )}
-
-          <MapLibreGL.RasterSource
-            id="osmTiles"
-            tileUrlTemplates={["https://tile.openstreetmap.org/{z}/{x}/{y}.png"]}
-            tileSize={256}
+        {pickup && (
+          <MapLibreGL.PointAnnotation
+            id="pickup"
+            coordinate={[pickup.longitude, pickup.latitude]}
           >
-            <MapLibreGL.RasterLayer id="osmLayer" sourceID="osmTiles" />
-          </MapLibreGL.RasterSource>
-        </MapLibreGL.MapView>
+            <View style={styles.markerPickup} />
+          </MapLibreGL.PointAnnotation>
+        )}
+        {destination && (
+          <MapLibreGL.PointAnnotation
+            id="destination"
+            coordinate={[destination.longitude, destination.latitude]}
+          >
+            <View style={styles.markerDestination} />
+          </MapLibreGL.PointAnnotation>
+        )}
+      </MapLibreGL.MapView>
 
-        <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints} style={{ zIndex: 10 ,elevation: 10}}>
-          <BottomSheetView style={styles.container}>
-            {ride && (
-              <Text style={styles.status}>
-                {ride.status === "pending" && "🔍 Buscando transporte"}
-                {ride.status === "accepted" &&
-                  `🚕 Asignado · llega en ${ride.driver_eta_min} min`}
-                {ride.status === "on_the_way" && "🛣️ Transporte en camino"}
-                {ride.status === "arrived" && "📍 Transporte llegó"}
-              </Text>
-            )}
+      {/* Botones flotantes */}
+      <TouchableOpacity style={styles.menuButton}>
+        <Text style={styles.icon}>☰</Text>
+      </TouchableOpacity>
 
-            {!ride && (
-              <>
-                <View style={styles.row}>
-                  {["pickup", "destination"].map((m) => (
-                    <TouchableOpacity
-                      key={m}
-                      style={[styles.mode, mode === m && styles.active]}
-                      onPress={() => setMode(m as Mode)}
-                    >
-                      <Text>{m === "pickup" ? "Encuentro" : "Destino"}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+      <TouchableOpacity style={styles.bellButton}>
+        <Text style={styles.icon}>🔔</Text>
+      </TouchableOpacity>
 
-                <TextInput
-                  placeholder="Ej: Parque Cespedes"
-                  style={styles.input}
-                  value={addressText}
-                  onChangeText={setAddressText}
-                />
+      <TouchableOpacity
+        style={styles.locateButton}
+        onPress={() => setPickup(userLocation)}
+      >
+        <Text style={styles.icon}>📍</Text>
+      </TouchableOpacity>
 
-                <View style={styles.row}>
-                  {(["motor", "carro", "triciclo"] as Vehicle[]).map((v) => (
-                    <TouchableOpacity
-                      key={v}
-                      style={[styles.vehicle, vehicle === v && styles.active]}
-                      onPress={() => setVehicle(v)}
-                    >
-                      <Text>{v.toUpperCase()}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  style={styles.confirm}
-                  onPress={createRide}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.confirmText}>
-                      Confirmar ${calculatePrice()}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-          </BottomSheetView>
-        </BottomSheet>
+      {/* Campo "¿A dónde vamos?" */}
+      <View style={styles.searchBar}>
+        <TextInput
+          placeholder="¿A dónde vamos?"
+          placeholderTextColor="#888"
+          style={styles.searchInput}
+          value={addressText}
+          onChangeText={setAddressText}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+        />
       </View>
-    //</GestureHandlerRootView>
+
+      {/* Bottom Sheet */}
+      <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints}>
+        <BottomSheetView style={styles.sheet}>
+          {ride ? (
+            <Text style={styles.statusText}>
+              {ride.status === "pending"
+                ? "🔍 Buscando transporte..."
+                : "🚗 En camino"}
+            </Text>
+          ) : (
+            <>
+              <View style={styles.vehicleRow}>
+                {["motor", "carro", "triciclo"].map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    style={[
+                      styles.vehicleButton,
+                      vehicle === v && styles.vehicleActive,
+                    ]}
+                    onPress={() => setVehicle(v)}
+                  >
+                    <Text style={{ color: "#fff" }}>{v.toUpperCase()}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmBtn,
+                  !destination && { opacity: 0.4 },
+                ]}
+                onPress={createRide}
+                disabled={!destination || !vehicle}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.confirmText}>
+                    {destination
+                      ? `Confirmar $${calculatePrice()}`
+                      : "Selecciona destino"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+        </BottomSheetView>
+      </BottomSheet>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  status: { textAlign: "center", fontWeight: "600", marginBottom: 10 },
-  row: { flexDirection: "row", marginBottom: 10 },
-  mode: {
-    flex: 1,
+  icon: { fontSize: 20 },
+  menuButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 30,
+    elevation: 5,
+    zIndex: 20,
+  },
+  bellButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 30,
+    elevation: 5,
+    zIndex: 20,
+  },
+  locateButton: {
+    position: "absolute",
+    bottom: 180,
+    right: 20,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 30,
+    elevation: 5,
+    zIndex: 20,
+  },
+  searchBar: {
+    position: "absolute",
+    top: 110,
+    alignSelf: "center",
+    backgroundColor: "#1C1C1E",
+    borderRadius: 15,
+    width: "90%",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    zIndex: 15,
+  },
+  searchInput: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  sheet: {
+    padding: 20,
+    backgroundColor: "#1C1C1E",
+  },
+  vehicleRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 10,
+  },
+  vehicleButton: {
     padding: 12,
-    backgroundColor: "#eee",
     borderRadius: 10,
-    alignItems: "center",
-    marginHorizontal: 4,
-  },
-  vehicle: {
+    backgroundColor: "#2C2C2E",
     flex: 1,
-    padding: 14,
-    backgroundColor: "#eee",
-    borderRadius: 12,
-    alignItems: "center",
     marginHorizontal: 4,
+    alignItems: "center",
   },
-  active: { backgroundColor: "#FF6A00" },
-  input: {
-    backgroundColor: "#f2f2f2",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  confirm: {
+  vehicleActive: { backgroundColor: "#FF6A00" },
+  confirmBtn: {
     backgroundColor: "#FF6A00",
     padding: 18,
     borderRadius: 16,
     alignItems: "center",
+    marginTop: 10,
   },
-  confirmText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  confirmText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  statusText: { color: "#fff", textAlign: "center", fontWeight: "600" },
+  markerPickup: {
+    width: 20,
+    height: 20,
+    backgroundColor: "#FF6A00",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  markerDestination: {
+    width: 20,
+    height: 20,
+    backgroundColor: "#000",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
 })
