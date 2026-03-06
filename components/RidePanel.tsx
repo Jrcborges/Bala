@@ -1,14 +1,14 @@
 import React from "react"
 import {
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+FlatList,
+StyleSheet,
+Text,
+TextInput,
+TouchableOpacity,
+View
 } from "react-native"
 
-type Props = {
+type Props={
 
 pickupText:string
 destText:string
@@ -91,7 +91,6 @@ style={styles.input}
 <View style={styles.resultsBox}>
 
 <FlatList
-
 data={results}
 
 keyExtractor={(item)=>
@@ -101,13 +100,10 @@ item.place_id.toString()
 renderItem={({item})=>(
 
 <TouchableOpacity
-
 style={styles.result}
-
 onPress={()=>
 onSelectResult(item)
 }
-
 >
 
 <Text style={styles.resultText}>
@@ -118,7 +114,7 @@ onSelectResult(item)
 
 )}
 
-/>
+ />
 
 </View>
 
@@ -133,73 +129,55 @@ onSelectResult(item)
 const styles=StyleSheet.create({
 
 container:{
-
 position:"absolute",
 top:60,
 width:"90%",
 alignSelf:"center"
-
 },
 
 card:{
-
 backgroundColor:"#1C1C1E",
 borderRadius:20,
 padding:15
-
 },
 
 header:{
-
 flexDirection:"row",
 justifyContent:"space-between",
 alignItems:"center"
-
 },
 
 label:{
-
 color:"#aaa",
 fontSize:14
-
 },
 
 close:{
-
 color:"#fff",
 fontSize:20
-
 },
 
 input:{
-
 color:"#fff",
 fontSize:18,
 marginTop:10
-
 },
 
 resultsBox:{
-
 backgroundColor:"#1C1C1E",
 marginTop:10,
 borderRadius:15,
 maxHeight:250
-
 },
 
 result:{
-
 padding:15,
 borderBottomWidth:1,
 borderBottomColor:"#333"
-
 },
 
 resultText:{
-
 color:"#fff"
-
 }
 
 })
