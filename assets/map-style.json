@@ -1,0 +1,59 @@
+{
+  "version": 8,
+  "name": "Minimal Streets",
+  "sources": {
+    "carto": {
+      "type": "vector",
+      "tiles": [
+        "https://a.basemaps.cartocdn.com/vector/carto.streets/v1/{z}/{x}/{y}.mvt",
+        "https://b.basemaps.cartocdn.com/vector/carto.streets/v1/{z}/{x}/{y}.mvt"
+      ]
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#ffffff"
+      }
+    },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "carto",
+      "source-layer": "transportation",
+      "paint": {
+        "line-color": "#cfcfcf",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5, 0.5,
+          12, 2,
+          16, 6
+        ]
+      }
+    },
+    {
+      "id": "road-labels",
+      "type": "symbol",
+      "source": "carto",
+      "source-layer": "transportation_name",
+      "layout": {
+        "text-field": ["get", "name"],
+        "text-font": ["Open Sans Regular"],
+        "text-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10, 10,
+          16, 16
+        ]
+      },
+      "paint": {
+        "text-color": "#444"
+      }
+    }
+  ]
+}
