@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react"
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import React,{useEffect,useRef,useState} from "react"
+import {StyleSheet,Text,TouchableOpacity,View} from "react-native"
 
 import MapLibreGL from "@maplibre/maplibre-react-native"
 import * as Location from "expo-location"
@@ -10,356 +10,492 @@ MapLibreGL.setAccessToken(null)
 
 /* ================= UTILS ================= */
 
-const toRad = (v: number) => v * Math.PI / 180
+const toRad=(v:number)=>v*Math.PI/180
 
-const getDistanceKm = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-) => {
+const getDistanceKm=(lat1:number,lon1:number,lat2:number,lon2:number)=>{
 
-  const R = 6371
+const R=6371
 
-  const dLat = toRad(lat2 - lat1)
-  const dLon = toRad(lon2 - lon1)
+const dLat=toRad(lat2-lat1)
+const dLon=toRad(lon2-lon1)
 
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-    Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) ** 2
+const a=
+Math.sin(dLat/2)**2+
+Math.cos(toRad(lat1))*
+Math.cos(toRad(lat2))*
+Math.sin(dLon/2)**2
 
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)))
+
 }
 
 /* ================= SCREEN ================= */
 
-export default function Index() {
+export default function Index(){
 
-  const cameraRef = useRef<any>(null)
+const cameraRef=useRef<any>(null)
 
-  /* STATE */
+/* STATE */
 
-  const [userLocation, setUserLocation] = useState<any>(null)
+const [userLocation,setUserLocation]=useState<any>(null)
 
-  const [pickup, setPickup] = useState<any>(null)
-  const [destination, setDestination] = useState<any>(null)
+const [pickup,setPickup]=useState<any>(null)
+const [destination,setDestination]=useState<any>(null)
 
-  const [route, setRoute] = useState<any>(null)
+const [route,setRoute]=useState<any>(null)
 
-  const [selecting, setSelecting] =
-    useState<"pickup" | "destination">("destination")
+const [mapCenter,setMapCenter]=useState<any>(null)
 
-  const [results, setResults] = useState<any[]>([])
+const [centerAddress,setCenterAddress]=useState("")
 
-  const [pickupText, setPickupText] = useState("")
-  const [destText, setDestText] = useState("")
+const [distance,setDistance]=useState(0)
 
-  /* ================= GPS TIEMPO REAL ================= */
+const [selecting,setSelecting]=
+useState<"pickup"|"destination">("destination")
 
-  useEffect(() => {
+const [results,setResults]=useState<any[]>([])
 
-    let sub: any
+const [pickupText,setPickupText]=useState("")
+const [destText,setDestText]=useState("")
 
-    ; (async () => {
+/* ================= GPS ================= */
 
-      const { status } =
-        await Location.requestForegroundPermissionsAsync()
+useEffect(()=>{
 
-      if (status !== "granted") return
+let sub:any
 
-      sub = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 5
-        },
-        (loc) => {
+;(async()=>{
 
-          const coords = {
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude
-          }
+const {status}=await Location.requestForegroundPermissionsAsync()
 
-          setUserLocation(coords)
+if(status!=="granted")return
 
-          /* ORIGEN = GPS */
+sub=await Location.watchPositionAsync(
+{
+accuracy:Location.Accuracy.High,
+distanceInterval:5
+},
+(loc)=>{
 
-          setPickup(coords)
+const coords={
+latitude:loc.coords.latitude,
+longitude:loc.coords.longitude
+}
 
-        }
-      )
+setUserLocation(coords)
 
-    })()
+setPickup(coords)
 
-    return () => sub?.remove()
+}
 
-  }, [])
+)
 
-  /* ================= SEARCH ================= */
+})()
 
-  const searchAddress = async (text: string) => {
+return()=>sub?.remove()
 
-    if (selecting === "pickup") {
-      setPickupText(text)
-    } else {
-      setDestText(text)
-    }
+},[])
 
-    if (text.length < 3) {
+/* ================= SEARCH ================= */
 
-      setResults([])
-      return
+const searchAddress=async(text:string)=>{
 
-    }
+if(selecting==="pickup"){
+setPickupText(text)
+}else{
+setDestText(text)
+}
 
-    const url =
-      `https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5`
+if(text.length<3){
+setResults([])
+return
+}
 
-    const res = await fetch(url)
+const url=
+`https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5`
 
-    const data = await res.json()
+const res=await fetch(url)
 
-    setResults(data)
+const data=await res.json()
 
-  }
+setResults(data)
 
-  /* ================= SELECT PLACE ================= */
+}
 
-  const selectPlace = async (place: any) => {
+/* ================= SELECT PLACE ================= */
 
-    const loc = {
-      latitude: parseFloat(place.lat),
-      longitude: parseFloat(place.lon)
-    }
+const selectPlace=async(place:any)=>{
 
-    if (selecting === "destination") {
+const loc={
+latitude:parseFloat(place.lat),
+longitude:parseFloat(place.lon)
+}
 
-      setDestination(loc)
-      setDestText(place.display_name)
+if(selecting==="pickup"){
 
-      await drawRoute(loc)
+setPickup(loc)
 
-    }
+setPickupText(place.display_name)
 
-    setResults([])
+}
 
-  }
+if(selecting==="destination"){
 
-  /* ================= ROUTE ================= */
+setDestination(loc)
 
-  const drawRoute = async (dest: any) => {
+setDestText(place.display_name)
 
-    if (!pickup) return
+await drawRoute(loc)
 
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${pickup.longitude},${pickup.latitude};${dest.longitude},${dest.latitude}` +
-      `?overview=full&geometries=geojson`
+}
 
-    const res = await fetch(url)
+setResults([])
 
-    const data = await res.json()
+}
 
-    if (!data.routes?.length) return
+/* ================= ROUTE ================= */
 
-    const routeGeoJSON = {
-      type: "Feature",
-      geometry: data.routes[0].geometry
-    }
+const drawRoute=async(dest:any)=>{
 
-    setRoute(routeGeoJSON)
+if(!pickup)return
 
-  }
+const url=
+`https://router.project-osrm.org/route/v1/driving/`+
+`${pickup.longitude},${pickup.latitude};${dest.longitude},${dest.latitude}`+
+`?overview=full&geometries=geojson`
 
-  /* ================= RESET ================= */
+const res=await fetch(url)
 
-  const resetTrip = () => {
+const data=await res.json()
 
-    setDestination(null)
-    setRoute(null)
+if(!data.routes?.length)return
 
-    setDestText("")
-    setResults([])
+const routeGeoJSON={
+type:"Feature",
+geometry:data.routes[0].geometry
+}
 
-  }
+setRoute(routeGeoJSON)
 
-  /* ================= GO TO MY LOCATION ================= */
+const km=data.routes[0].distance/1000
 
-  const goToMyLocation = () => {
+setDistance(km)
 
-    if (!userLocation) return
+}
 
-    cameraRef.current?.setCamera({
+/* ================= MAP CENTER ================= */
 
-      centerCoordinate: [
-        userLocation.longitude,
-        userLocation.latitude
-      ],
+const onMapMove=async(e:any)=>{
 
-      zoomLevel: 15,
-      animationDuration: 800
+const coords=e.geometry.coordinates
 
-    })
+const center={
+longitude:coords[0],
+latitude:coords[1]
+}
 
-  }
+setMapCenter(center)
 
-  /* ================= UI ================= */
+const url=
+`https://nominatim.openstreetmap.org/reverse?lat=${center.latitude}&lon=${center.longitude}&format=json`
 
-  return (
+const res=await fetch(url)
 
-    <View style={{ flex: 1 }}>
+const data=await res.json()
 
-      {/* MAP */}
+setCenterAddress(data.display_name)
 
-      <MapLibreGL.MapView
-        style={{ flex: 1 }}
-        logoEnabled={false}
-        attributionEnabled={false}
-        mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
-      >
+}
 
-        <MapLibreGL.Camera ref={cameraRef} />
+/* ================= CONFIRM PIN ================= */
 
-        {/* ORIGEN */}
+const confirmLocation=async()=>{
 
-        {pickup && (
+if(!mapCenter)return
 
-          <MapLibreGL.PointAnnotation
-            id="pickup"
-            coordinate={[
-              pickup.longitude,
-              pickup.latitude
-            ]}
-          >
+if(selecting==="pickup"){
 
-            <View style={styles.pickupMarker} />
+setPickup(mapCenter)
 
-          </MapLibreGL.PointAnnotation>
+setPickupText(centerAddress)
 
-        )}
+}
 
-        {/* DESTINO */}
+if(selecting==="destination"){
 
-        {destination && (
+setDestination(mapCenter)
 
-          <MapLibreGL.PointAnnotation
-            id="dest"
-            coordinate={[
-              destination.longitude,
-              destination.latitude
-            ]}
-          >
+setDestText(centerAddress)
 
-            <View style={styles.destMarker} />
+await drawRoute(mapCenter)
 
-          </MapLibreGL.PointAnnotation>
+}
 
-        )}
+}
 
-        {/* RUTA */}
+/* ================= RESET ================= */
 
-        {route && (
+const resetTrip=()=>{
 
-          <MapLibreGL.ShapeSource
-            id="routeSource"
-            shape={route}
-          >
+setDestination(null)
+setRoute(null)
 
-            <MapLibreGL.LineLayer
-              id="routeLine"
-              style={{
-                lineColor: "#FF6A00",
-                lineWidth: 6
-              }}
-            />
+setDestText("")
+setResults([])
 
-          </MapLibreGL.ShapeSource>
+}
 
-        )}
+/* ================= GPS BUTTON ================= */
 
-      </MapLibreGL.MapView>
+const goToMyLocation=()=>{
 
-      {/* BOTON GPS */}
+if(!userLocation)return
 
-      <TouchableOpacity
-        style={styles.gpsBtn}
-        onPress={goToMyLocation}
-      >
+cameraRef.current?.setCamera({
 
-        <Text style={{ fontSize: 22 }}>
-          📍
-        </Text>
+centerCoordinate:[
+userLocation.longitude,
+userLocation.latitude
+],
 
-      </TouchableOpacity>
+zoomLevel:15,
+animationDuration:800
 
-      {/* PANEL */}
+})
 
-      <RidePanel
+}
 
-        pickupText={"Tu ubicación"}
-        destText={destText}
+/* ================= UI ================= */
 
-        results={results}
+return(
 
-        onPickupFocus={() => { }}
-        onDestFocus={() =>
-          setSelecting("destination")
-        }
+<View style={{flex:1}}>
 
-        onSearch={searchAddress}
+<MapLibreGL.MapView
+style={{flex:1}}
+logoEnabled={false}
+attributionEnabled={false}
+mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+onRegionDidChange={onMapMove}
+>
 
-        onSelectResult={selectPlace}
+<MapLibreGL.Camera ref={cameraRef} zoomLevel={14}/>
 
-        onCancel={resetTrip}
+{/* PICKUP */}
 
-      />
+{pickup&&(
 
-    </View>
+<MapLibreGL.PointAnnotation
+id="pickup"
+coordinate={[
+pickup.longitude,
+pickup.latitude
+]}
+>
 
-  )
+<View style={styles.pickupMarker}/>
+
+</MapLibreGL.PointAnnotation>
+
+)}
+
+{/* DEST */}
+
+{destination&&(
+
+<MapLibreGL.PointAnnotation
+id="dest"
+coordinate={[
+destination.longitude,
+destination.latitude
+]}
+>
+
+<View style={styles.destMarker}/>
+
+</MapLibreGL.PointAnnotation>
+
+)}
+
+{/* ROUTE */}
+
+{route&&(
+
+<MapLibreGL.ShapeSource
+id="routeSource"
+shape={route}
+>
+
+<MapLibreGL.LineLayer
+id="routeLine"
+style={{
+lineColor:"#FF6A00",
+lineWidth:6
+}}
+/>
+
+</MapLibreGL.ShapeSource>
+
+)}
+
+</MapLibreGL.MapView>
+
+{/* CENTER PIN */}
+
+<View style={styles.centerPin}>
+<Text style={{fontSize:40}}>📍</Text>
+</View>
+
+{/* ADDRESS */}
+
+{centerAddress!==""&&(
+
+<View style={styles.addressBox}>
+
+<Text style={styles.addressText}>
+{centerAddress}
+</Text>
+
+</View>
+
+)}
+
+{/* CONFIRM BUTTON */}
+
+<TouchableOpacity
+style={styles.confirmBtn}
+onPress={confirmLocation}
+>
+
+<Text style={{color:"#fff"}}>
+Confirmar ubicación
+</Text>
+
+</TouchableOpacity>
+
+{/* DISTANCE */}
+
+{distance>0&&(
+
+<View style={styles.distanceBox}>
+
+<Text style={{color:"#fff"}}>
+Distancia {distance.toFixed(2)} km
+</Text>
+
+</View>
+
+)}
+
+{/* GPS BUTTON */}
+
+<TouchableOpacity
+style={styles.gpsBtn}
+onPress={goToMyLocation}
+>
+
+<Text style={{fontSize:22}}>
+📍
+</Text>
+
+</TouchableOpacity>
+
+{/* PANEL */}
+
+<RidePanel
+
+pickupText={pickupText}
+destText={destText}
+
+results={results}
+
+onPickupFocus={()=>setSelecting("pickup")}
+onDestFocus={()=>setSelecting("destination")}
+
+onSearch={searchAddress}
+
+onSelectResult={selectPlace}
+
+onCancel={resetTrip}
+
+/>
+
+</View>
+
+)
 
 }
 
 /* ================= STYLES ================= */
 
-const styles = StyleSheet.create({
+const styles=StyleSheet.create({
 
-  pickupMarker: {
+pickupMarker:{
+width:20,
+height:20,
+borderRadius:10,
+backgroundColor:"#2ECC71",
+borderWidth:3,
+borderColor:"#fff"
+},
 
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#2ECC71",
-    borderWidth: 3,
-    borderColor: "#fff"
+destMarker:{
+width:20,
+height:20,
+borderRadius:10,
+backgroundColor:"#FF3B30",
+borderWidth:3,
+borderColor:"#fff"
+},
 
-  },
+centerPin:{
+position:"absolute",
+top:"50%",
+left:"50%",
+marginLeft:-20,
+marginTop:-40
+},
 
-  destMarker: {
+addressBox:{
+position:"absolute",
+top:120,
+alignSelf:"center",
+backgroundColor:"#1C1C1E",
+padding:10,
+borderRadius:10
+},
 
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#FF3B30",
-    borderWidth: 3,
-    borderColor: "#fff"
+addressText:{
+color:"#fff",
+maxWidth:250
+},
 
-  },
+confirmBtn:{
+position:"absolute",
+top:180,
+alignSelf:"center",
+backgroundColor:"#FF6A00",
+padding:12,
+borderRadius:10
+},
 
-  gpsBtn: {
+distanceBox:{
+position:"absolute",
+bottom:120,
+alignSelf:"center",
+backgroundColor:"#1C1C1E",
+padding:10,
+borderRadius:10
+},
 
-    position: "absolute",
-    bottom: 200,
-    right: 20,
-
-    backgroundColor: "#fff",
-
-    padding: 12,
-    borderRadius: 30,
-
-    elevation: 5
-
-  }
+gpsBtn:{
+position:"absolute",
+bottom:200,
+right:20,
+backgroundColor:"#fff",
+padding:12,
+borderRadius:30,
+elevation:5
+}
 
 })
