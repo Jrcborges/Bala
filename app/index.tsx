@@ -213,7 +213,7 @@ export default function Index() {
       <MapLibreGL.MapView
         ref={mapRef}
         style={{ flex: 1 }}
-        mapStyle={require("../assets/map-style.json")}
+        mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
         logoEnabled={false}
         attributionEnabled={false}
       >
