@@ -8,58 +8,72 @@ import {
     View
 } from "react-native"
 
+type Props = {
+
+pickupText:string
+destText:string
+
+results:any[]
+
+onPickupFocus:()=>void
+onDestFocus:()=>void
+
+onSearch:(text:string)=>void
+
+onSelectResult:(place:any)=>void
+
+onCancel:()=>void
+
+}
+
 export default function RidePanel({
 
 pickupText,
 destText,
+
 results,
 
 onPickupFocus,
 onDestFocus,
 
 onSearch,
+
 onSelectResult,
 
 onCancel
 
-}:any){
+}:Props){
 
 return(
 
 <View style={styles.container}>
 
-{/* ORIGEN */}
+<View style={styles.card}>
 
-<View style={styles.box}>
+<View style={styles.header}>
 
 <Text style={styles.label}>
 Origen
 </Text>
 
-<View style={styles.row}>
+<TouchableOpacity
+onPress={onCancel}
+>
+<Text style={styles.close}>
+✕
+</Text>
+</TouchableOpacity>
+
+</View>
 
 <TextInput
-placeholder="¿Desde dónde?"
+placeholder="Tu ubicación"
 placeholderTextColor="#aaa"
 value={pickupText}
 onFocus={onPickupFocus}
 onChangeText={onSearch}
 style={styles.input}
 />
-
-<TouchableOpacity onPress={onCancel}>
-<Text style={styles.cancel}>✕</Text>
-</TouchableOpacity>
-
-</View>
-
-</View>
-
-{/* DESTINO */}
-
-<View style={styles.box}>
-
-<View style={styles.row}>
 
 <TextInput
 placeholder="¿A dónde vas?"
@@ -72,20 +86,28 @@ style={styles.input}
 
 </View>
 
-</View>
+{results.length>0 && (
 
-{/* RESULTADOS */}
-
-{results.length > 0 && (
+<View style={styles.resultsBox}>
 
 <FlatList
+
 data={results}
-keyExtractor={(item)=>item.place_id.toString()}
+
+keyExtractor={(item)=>
+item.place_id.toString()
+}
+
 renderItem={({item})=>(
 
 <TouchableOpacity
+
 style={styles.result}
-onPress={()=>onSelectResult(item)}
+
+onPress={()=>
+onSelectResult(item)
+}
+
 >
 
 <Text style={styles.resultText}>
@@ -95,7 +117,10 @@ onPress={()=>onSelectResult(item)}
 </TouchableOpacity>
 
 )}
+
 />
+
+</View>
 
 )}
 
@@ -105,52 +130,76 @@ onPress={()=>onSelectResult(item)}
 
 }
 
-const styles = StyleSheet.create({
+const styles=StyleSheet.create({
 
 container:{
+
 position:"absolute",
 top:60,
 width:"90%",
-alignSelf:"center",
-backgroundColor:"#1C1C1E",
-borderRadius:15,
-padding:15
+alignSelf:"center"
+
 },
 
-box:{
-marginBottom:10
+card:{
+
+backgroundColor:"#1C1C1E",
+borderRadius:20,
+padding:15
+
+},
+
+header:{
+
+flexDirection:"row",
+justifyContent:"space-between",
+alignItems:"center"
+
 },
 
 label:{
+
 color:"#aaa",
-marginBottom:5
+fontSize:14
+
 },
 
-row:{
-flexDirection:"row",
-alignItems:"center"
+close:{
+
+color:"#fff",
+fontSize:20
+
 },
 
 input:{
-flex:1,
+
 color:"#fff",
-fontSize:16
+fontSize:18,
+marginTop:10
+
 },
 
-cancel:{
-color:"#fff",
-fontSize:20,
-marginLeft:10
+resultsBox:{
+
+backgroundColor:"#1C1C1E",
+marginTop:10,
+borderRadius:15,
+maxHeight:250
+
 },
 
 result:{
-paddingVertical:10,
+
+padding:15,
 borderBottomWidth:1,
 borderBottomColor:"#333"
+
 },
 
 resultText:{
+
 color:"#fff"
+
 }
 
 })
