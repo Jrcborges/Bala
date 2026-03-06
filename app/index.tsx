@@ -3,19 +3,18 @@ import { useAuth } from "@/providers/AuthProviders"
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet"
 import MapLibreGL from "@maplibre/maplibre-react-native"
 import * as Location from "expo-location"
-import * as Notifications from "expo-notifications"
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Image,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native"
 
-/* ====== UTILS ====== */
+/* ================= UTILS ================= */
+
 const toRad = (v: number) => (v * Math.PI) / 180
 
 const getDistanceKm = (
@@ -39,49 +38,31 @@ const getDistanceKm = (
 
 type Vehicle = "motor" | "carro" | "triciclo"
 
-const estimateTimeMinutes = (distanceKm: number, vehicle: Vehicle) => {
-  const speeds = { motor: 22, carro: 18, triciclo: 15 }
-  return Math.round(((distanceKm / speeds[vehicle]) * 60) * 1.2)
-}
-
-const estimateDriverEta = (vehicle: Vehicle) => {
-  const avgKm = { motor: 1.2, carro: 1.8, triciclo: 1.5 }
-  return estimateTimeMinutes(avgKm[vehicle], vehicle)
-}
-
-/* ====== NOTIFICATIONS ====== */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-})
-
-/* ====== MAIN ====== */
+/* ================= MAIN ================= */
 
 export default function Index() {
   const { session } = useAuth()
 
   const [user, setUser] = useState<any>(null)
+
   const [pickup, setPickup] = useState<any>(null)
   const [destination, setDestination] = useState<any>(null)
   const [tempLocation, setTempLocation] = useState<any>(null)
-  const [userLocation, setUserLocation] = useState<any>(null)
 
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null)
-  const [addressText, setAddressText] = useState("")
-  const [ride, setRide] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
   const [route, setRoute] = useState<any>(null)
 
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null)
+
+  const [selecting, setSelecting] = useState<"pickup" | "destination">("pickup")
+
+  const [loading, setLoading] = useState(false)
+  const [ride, setRide] = useState<any>(null)
+
   const mapRef = useRef<any>(null)
-  const sheetRef = useRef<BottomSheet>(null)
 
-  const snapPoints = useMemo(() => ["20%", "55%"], [])
+  const snapPoints = useMemo(() => ["20%", "50%"], [])
 
-  /* ====== AUTH ====== */
+  /* ================= AUTH ================= */
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -89,7 +70,7 @@ export default function Index() {
     })
   }, [])
 
-  /* ====== LOCATION ====== */
+  /* ================= LOCATION ================= */
 
   useEffect(() => {
     ;(async () => {
@@ -104,13 +85,11 @@ export default function Index() {
         longitude: loc.coords.longitude,
       }
 
-      setPickup(coords)
-      setUserLocation(coords)
       setTempLocation(coords)
     })()
   }, [])
 
-  /* ====== PRICE ====== */
+  /* ================= PRICE ================= */
 
   const calculatePrice = () => {
     if (!pickup || !destination || !vehicle) return 0
@@ -122,12 +101,11 @@ export default function Index() {
       destination.longitude
     )
 
-    const pricing: Record<Vehicle, { base: number; perKm: number; min: number }> =
-      {
-        motor: { base: 100, perKm: 35, min: 150 },
-        carro: { base: 150, perKm: 60, min: 300 },
-        triciclo: { base: 120, perKm: 45, min: 200 },
-      }
+    const pricing = {
+      motor: { base: 100, perKm: 35, min: 150 },
+      carro: { base: 150, perKm: 60, min: 300 },
+      triciclo: { base: 120, perKm: 45, min: 200 },
+    }
 
     const { base, perKm, min } = pricing[vehicle]
 
@@ -136,54 +114,7 @@ export default function Index() {
     return price < min ? min : price
   }
 
-  /* ====== CREATE RIDE ====== */
-
-  const createRide = async () => {
-    if (!user || !pickup || !destination || !vehicle) return
-
-    setLoading(true)
-
-    const distanceKm = getDistanceKm(
-      pickup.latitude,
-      pickup.longitude,
-      destination.latitude,
-      destination.longitude
-    )
-
-    await supabase.from("rides").insert({
-      client_id: user.id,
-      origin_lat: pickup.latitude,
-      origin_lng: pickup.longitude,
-      dest_lat: destination.latitude,
-      dest_lng: destination.longitude,
-      vehicle_type: vehicle,
-      distance_km: distanceKm,
-      estimated_time_min: estimateTimeMinutes(distanceKm, vehicle),
-      driver_eta_min: estimateDriverEta(vehicle),
-      price: calculatePrice(),
-      payment_method: "cash",
-      status: "pending",
-    })
-
-    setLoading(false)
-    setAddressText("")
-    setVehicle(null)
-    setRide({ status: "pending" })
-  }
-
-  /* ====== CONFIRM LOCATION ====== */
-
-  const confirmLocation = async () => {
-    if (!tempLocation) return
-
-    if (!pickup) setPickup(tempLocation)
-    else {
-      setDestination(tempLocation)
-      await drawRoute(tempLocation)
-    }
-  }
-
-  /* ====== DRAW ROUTE ====== */
+  /* ================= ROUTE ================= */
 
   const drawRoute = async (dest: any) => {
     if (!pickup) return
@@ -206,9 +137,55 @@ export default function Index() {
     setRoute(routeGeoJSON)
   }
 
+  /* ================= CREATE RIDE ================= */
+
+  const createRide = async () => {
+    if (!user || !pickup || !destination || !vehicle) return
+
+    setLoading(true)
+
+    const distanceKm = getDistanceKm(
+      pickup.latitude,
+      pickup.longitude,
+      destination.latitude,
+      destination.longitude
+    )
+
+    await supabase.from("rides").insert({
+      client_id: user.id,
+      origin_lat: pickup.latitude,
+      origin_lng: pickup.longitude,
+      dest_lat: destination.latitude,
+      dest_lng: destination.longitude,
+      vehicle_type: vehicle,
+      distance_km: distanceKm,
+      price: calculatePrice(),
+      status: "pending",
+    })
+
+    setRide({ status: "pending" })
+    setLoading(false)
+  }
+
+  /* ================= CONFIRM ================= */
+
+  const confirmLocation = async () => {
+    if (!tempLocation) return
+
+    if (selecting === "pickup") {
+      setPickup(tempLocation)
+      setSelecting("destination")
+    } else if (!destination) {
+      setDestination(tempLocation)
+      await drawRoute(tempLocation)
+    } else {
+      await createRide()
+    }
+  }
+
   return (
     <View style={{ flex: 1 }}>
-      {/* MAP */}
+      {/* ================= MAP ================= */}
 
       <MapLibreGL.MapView
         ref={mapRef}
@@ -216,6 +193,14 @@ export default function Index() {
         mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
         logoEnabled={false}
         attributionEnabled={false}
+        onRegionDidChange={async () => {
+          const center = await mapRef.current.getCenter()
+
+          setTempLocation({
+            latitude: center[1],
+            longitude: center[0],
+          })
+        }}
       >
         <MapLibreGL.Camera
           zoomLevel={13}
@@ -226,6 +211,28 @@ export default function Index() {
           }
         />
 
+        {/* PICKUP MARKER */}
+
+        {pickup && (
+          <MapLibreGL.PointAnnotation
+            id="pickup"
+            coordinate={[pickup.longitude, pickup.latitude]}
+          >
+            <View style={styles.pickupMarker} />
+          </MapLibreGL.PointAnnotation>
+        )}
+
+        {/* DESTINATION MARKER */}
+
+        {destination && (
+          <MapLibreGL.PointAnnotation
+            id="dest"
+            coordinate={[destination.longitude, destination.latitude]}
+          >
+            <View style={styles.destMarker} />
+          </MapLibreGL.PointAnnotation>
+        )}
+
         {/* ROUTE */}
 
         {route && (
@@ -233,56 +240,39 @@ export default function Index() {
             <MapLibreGL.LineLayer
               id="routeLine"
               style={{
-                lineColor: "#000",
-                lineWidth: 5,
+                lineColor: "#FF6A00",
+                lineWidth: 6,
+                lineCap: "round",
+                lineJoin: "round",
               }}
             />
           </MapLibreGL.ShapeSource>
         )}
       </MapLibreGL.MapView>
 
-      {/* PIN */}
+      {/* PIN CENTRAL */}
 
-      <View style={styles.centerMarkerContainer}>
-        <Image
-          source={require("../assets/images/pin.png")}
-          style={styles.centerMarker}
-        />
-      </View>
+      {!pickup || !destination ? (
+        <View style={styles.centerMarkerContainer}>
+          <Image
+            source={require("../assets/images/pin.png")}
+            style={styles.centerMarker}
+          />
+        </View>
+      ) : null}
 
-      {/* LOCATE BUTTON */}
+      {/* ================= BOTTOM SHEET ================= */}
 
-      <TouchableOpacity
-        style={styles.locateButton}
-        onPress={() => setTempLocation(userLocation)}
-      >
-        <Text style={styles.icon}>📍</Text>
-      </TouchableOpacity>
-
-      {/* SEARCH */}
-
-      <View style={styles.searchBar}>
-        <TextInput
-          placeholder="¿A dónde vamos?"
-          placeholderTextColor="#888"
-          style={styles.searchInput}
-          value={addressText}
-          onChangeText={setAddressText}
-        />
-      </View>
-
-      {/* BOTTOM SHEET */}
-
-      <BottomSheet ref={sheetRef} index={0} snapPoints={snapPoints}>
+      <BottomSheet index={0} snapPoints={snapPoints}>
         <BottomSheetView style={styles.sheet}>
           {ride ? (
             <Text style={styles.statusText}>
-              {ride.status === "pending"
-                ? "🔍 Buscando transporte..."
-                : "🚗 En camino"}
+              🔍 Buscando transporte...
             </Text>
           ) : (
             <>
+              {/* VEHICLES */}
+
               <View style={styles.vehicleRow}>
                 {["motor", "carro", "triciclo"].map((v) => (
                   <TouchableOpacity
@@ -300,19 +290,19 @@ export default function Index() {
                 ))}
               </View>
 
+              {/* CONFIRM BUTTON */}
+
               <TouchableOpacity
-                style={[
-                  styles.confirmBtn,
-                  (!tempLocation || !vehicle) && { opacity: 0.4 },
-                ]}
+                style={styles.confirmBtn}
                 onPress={confirmLocation}
-                disabled={!tempLocation || !vehicle}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.confirmText}>
-                    {pickup && !destination
+                    {selecting === "pickup"
+                      ? "Confirmar punto de recogida"
+                      : !destination
                       ? "Confirmar destino"
                       : `Confirmar $${calculatePrice()}`}
                   </Text>
@@ -326,36 +316,9 @@ export default function Index() {
   )
 }
 
-/* ====== STYLES ====== */
+/* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
-  icon: { fontSize: 20 },
-
-  locateButton: {
-    position: "absolute",
-    bottom: 180,
-    right: 20,
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 30,
-    elevation: 5,
-    zIndex: 20,
-  },
-
-  searchBar: {
-    position: "absolute",
-    top: 110,
-    alignSelf: "center",
-    backgroundColor: "#1C1C1E",
-    borderRadius: 15,
-    width: "90%",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    zIndex: 15,
-  },
-
-  searchInput: { color: "#fff", fontSize: 16 },
-
   sheet: {
     padding: 20,
     backgroundColor: "#1C1C1E",
@@ -406,11 +369,28 @@ const styles = StyleSheet.create({
     left: "50%",
     marginLeft: -20,
     marginTop: -40,
-    zIndex: 10,
   },
 
   centerMarker: {
     width: 40,
     height: 40,
+  },
+
+  pickupMarker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#2ECC71",
+    borderWidth: 3,
+    borderColor: "#fff",
+  },
+
+  destMarker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FF3B30",
+    borderWidth: 3,
+    borderColor: "#fff",
   },
 })
