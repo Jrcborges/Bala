@@ -6,9 +6,10 @@ import * as Location from "expo-location"
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
-  Image,
+  FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native"
@@ -38,8 +39,6 @@ const getDistanceKm = (
 
 type Vehicle = "motor" | "carro" | "triciclo"
 
-/* ================= MAIN ================= */
-
 export default function Index() {
   const { session } = useAuth()
 
@@ -53,14 +52,20 @@ export default function Index() {
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null)
 
-  const [selecting, setSelecting] = useState<"pickup" | "destination">("pickup")
+  const [selecting, setSelecting] = useState<"pickup" | "destination">(
+    "pickup"
+  )
 
   const [loading, setLoading] = useState(false)
   const [ride, setRide] = useState<any>(null)
 
-  const mapRef = useRef<any>(null)
+  const [searchText, setSearchText] = useState("")
+  const [results, setResults] = useState<any[]>([])
 
-  const snapPoints = useMemo(() => ["20%", "50%"], [])
+  const mapRef = useRef<any>(null)
+  const cameraRef = useRef<any>(null)
+
+  const snapPoints = useMemo(() => ["20%", "55%"], [])
 
   /* ================= AUTH ================= */
 
@@ -71,6 +76,8 @@ export default function Index() {
   }, [])
 
   /* ================= LOCATION ================= */
+
+  const [userLocation, setUserLocation] = useState<any>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -85,9 +92,78 @@ export default function Index() {
         longitude: loc.coords.longitude,
       }
 
+      setUserLocation(coords)
       setTempLocation(coords)
+
+      setTimeout(() => {
+        cameraRef.current?.setCamera({
+          centerCoordinate: [coords.longitude, coords.latitude],
+          zoomLevel: 15,
+          animationDuration: 1000,
+        })
+      }, 500)
     })()
   }, [])
+
+  /* ================= SEARCH ================= */
+
+  const searchAddress = async (text: string) => {
+    setSearchText(text)
+
+    if (text.length < 3) {
+      setResults([])
+      return
+    }
+
+    const url =
+      `https://nominatim.openstreetmap.org/search?q=${text}+santiago+de+cuba&format=json&limit=5`
+
+    const res = await fetch(url)
+
+    const data = await res.json()
+
+    setResults(data)
+  }
+
+  const selectPlace = (place: any) => {
+    const loc = {
+      latitude: parseFloat(place.lat),
+      longitude: parseFloat(place.lon),
+    }
+
+    setTempLocation(loc)
+    setResults([])
+    setSearchText(place.display_name)
+
+    cameraRef.current?.setCamera({
+      centerCoordinate: [loc.longitude, loc.latitude],
+      zoomLevel: 16,
+      animationDuration: 800,
+    })
+  }
+
+  /* ================= ROUTE ================= */
+
+  const drawRoute = async (dest: any) => {
+    if (!pickup) return
+
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${pickup.longitude},${pickup.latitude};${dest.longitude},${dest.latitude}` +
+      `?overview=full&geometries=geojson`
+
+    const res = await fetch(url)
+    const data = await res.json()
+
+    if (!data.routes?.length) return
+
+    const routeGeoJSON = {
+      type: "Feature",
+      geometry: data.routes[0].geometry,
+    }
+
+    setRoute(routeGeoJSON)
+  }
 
   /* ================= PRICE ================= */
 
@@ -114,42 +190,12 @@ export default function Index() {
     return price < min ? min : price
   }
 
-  /* ================= ROUTE ================= */
-
-  const drawRoute = async (dest: any) => {
-    if (!pickup) return
-
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${pickup.longitude},${pickup.latitude};${dest.longitude},${dest.latitude}` +
-      `?overview=full&geometries=geojson`
-
-    const res = await fetch(url)
-    const data = await res.json()
-
-    if (!data.routes?.length) return
-
-    const routeGeoJSON = {
-      type: "Feature",
-      geometry: data.routes[0].geometry,
-    }
-
-    setRoute(routeGeoJSON)
-  }
-
   /* ================= CREATE RIDE ================= */
 
   const createRide = async () => {
     if (!user || !pickup || !destination || !vehicle) return
 
     setLoading(true)
-
-    const distanceKm = getDistanceKm(
-      pickup.latitude,
-      pickup.longitude,
-      destination.latitude,
-      destination.longitude
-    )
 
     await supabase.from("rides").insert({
       client_id: user.id,
@@ -158,12 +204,12 @@ export default function Index() {
       dest_lat: destination.latitude,
       dest_lng: destination.longitude,
       vehicle_type: vehicle,
-      distance_km: distanceKm,
       price: calculatePrice(),
       status: "pending",
     })
 
     setRide({ status: "pending" })
+
     setLoading(false)
   }
 
@@ -190,28 +236,11 @@ export default function Index() {
       <MapLibreGL.MapView
         ref={mapRef}
         style={{ flex: 1 }}
-        mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
         logoEnabled={false}
         attributionEnabled={false}
-        onRegionDidChange={async () => {
-          const center = await mapRef.current.getCenter()
-
-          setTempLocation({
-            latitude: center[1],
-            longitude: center[0],
-          })
-        }}
+        mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
       >
-        <MapLibreGL.Camera
-          zoomLevel={13}
-          centerCoordinate={
-            tempLocation
-              ? [tempLocation.longitude, tempLocation.latitude]
-              : [-75.8267, 20.0208]
-          }
-        />
-
-        {/* PICKUP MARKER */}
+        <MapLibreGL.Camera ref={cameraRef} zoomLevel={14} />
 
         {pickup && (
           <MapLibreGL.PointAnnotation
@@ -222,8 +251,6 @@ export default function Index() {
           </MapLibreGL.PointAnnotation>
         )}
 
-        {/* DESTINATION MARKER */}
-
         {destination && (
           <MapLibreGL.PointAnnotation
             id="dest"
@@ -232,8 +259,6 @@ export default function Index() {
             <View style={styles.destMarker} />
           </MapLibreGL.PointAnnotation>
         )}
-
-        {/* ROUTE */}
 
         {route && (
           <MapLibreGL.ShapeSource id="routeSource" shape={route}>
@@ -253,26 +278,67 @@ export default function Index() {
       {/* PIN CENTRAL */}
 
       {!pickup || !destination ? (
-        <View style={styles.centerMarkerContainer}>
-          <Image
-            source={require("../assets/images/pin.png")}
-            style={styles.centerMarker}
-          />
+        <View style={styles.centerMarker}>
+          <Text style={{ fontSize: 35 }}>📍</Text>
         </View>
       ) : null}
 
-      {/* ================= BOTTOM SHEET ================= */}
+      {/* BOTON MI UBICACION */}
+
+      <TouchableOpacity
+        style={styles.locateBtn}
+        onPress={() => {
+          if (!userLocation) return
+
+          cameraRef.current?.setCamera({
+            centerCoordinate: [
+              userLocation.longitude,
+              userLocation.latitude,
+            ],
+            zoomLevel: 15,
+            animationDuration: 800,
+          })
+        }}
+      >
+        <Text style={{ fontSize: 20 }}>📍</Text>
+      </TouchableOpacity>
+
+      {/* SEARCH */}
+
+      <View style={styles.searchBox}>
+        <TextInput
+          placeholder="Buscar dirección"
+          value={searchText}
+          onChangeText={searchAddress}
+          style={{ color: "#fff" }}
+        />
+
+        {results.length > 0 && (
+          <FlatList
+            data={results}
+            keyExtractor={(item) => item.place_id.toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.resultItem}
+                onPress={() => selectPlace(item)}
+              >
+                <Text style={{ color: "#fff" }}>
+                  {item.display_name}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </View>
+
+      {/* BOTTOM */}
 
       <BottomSheet index={0} snapPoints={snapPoints}>
         <BottomSheetView style={styles.sheet}>
           {ride ? (
-            <Text style={styles.statusText}>
-              🔍 Buscando transporte...
-            </Text>
+            <Text>🔍 Buscando transporte...</Text>
           ) : (
             <>
-              {/* VEHICLES */}
-
               <View style={styles.vehicleRow}>
                 {["motor", "carro", "triciclo"].map((v) => (
                   <TouchableOpacity
@@ -290,8 +356,6 @@ export default function Index() {
                 ))}
               </View>
 
-              {/* CONFIRM BUTTON */}
-
               <TouchableOpacity
                 style={styles.confirmBtn}
                 onPress={confirmLocation}
@@ -301,7 +365,7 @@ export default function Index() {
                 ) : (
                   <Text style={styles.confirmText}>
                     {selecting === "pickup"
-                      ? "Confirmar punto de recogida"
+                      ? "Confirmar recogida"
                       : !destination
                       ? "Confirmar destino"
                       : `Confirmar $${calculatePrice()}`}
@@ -319,10 +383,7 @@ export default function Index() {
 /* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
-  sheet: {
-    padding: 20,
-    backgroundColor: "#1C1C1E",
-  },
+  sheet: { padding: 20 },
 
   vehicleRow: {
     flexDirection: "row",
@@ -331,12 +392,9 @@ const styles = StyleSheet.create({
   },
 
   vehicleButton: {
+    backgroundColor: "#333",
     padding: 12,
     borderRadius: 10,
-    backgroundColor: "#2C2C2E",
-    flex: 1,
-    marginHorizontal: 4,
-    alignItems: "center",
   },
 
   vehicleActive: {
@@ -346,34 +404,46 @@ const styles = StyleSheet.create({
   confirmBtn: {
     backgroundColor: "#FF6A00",
     padding: 18,
-    borderRadius: 16,
+    borderRadius: 15,
     alignItems: "center",
-    marginTop: 10,
   },
 
   confirmText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 16,
-  },
-
-  statusText: {
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "600",
-  },
-
-  centerMarkerContainer: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    marginLeft: -20,
-    marginTop: -40,
   },
 
   centerMarker: {
-    width: 40,
-    height: 40,
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginLeft: -15,
+    marginTop: -35,
+  },
+
+  locateBtn: {
+    position: "absolute",
+    bottom: 200,
+    right: 20,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 30,
+  },
+
+  searchBox: {
+    position: "absolute",
+    top: 60,
+    width: "90%",
+    alignSelf: "center",
+    backgroundColor: "#1C1C1E",
+    padding: 10,
+    borderRadius: 12,
+  },
+
+  resultItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
   },
 
   pickupMarker: {
