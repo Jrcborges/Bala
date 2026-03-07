@@ -1,4 +1,4 @@
-import React,{useRef,useState} from "react"
+import React,{useRef} from "react"
 import {
 View,
 Text,
@@ -22,10 +22,8 @@ distance,
 
 onPickupFocus,
 onDestFocus,
-
 onSearch,
 onSelectResult,
-
 onConfirmPin,
 onCancel
 
@@ -33,27 +31,10 @@ onCancel
 
 const panelY=useRef(new Animated.Value(height*0.65)).current
 
-const [transport,setTransport]=useState("moto")
-
-const rates={
-moto:0.35,
-carro:0.60,
-triciclo:0.45
-}
-
-const prices={
-moto:(distance*rates.moto).toFixed(2),
-carro:(distance*rates.carro).toFixed(2),
-triciclo:(distance*rates.triciclo).toFixed(2)
-}
-
 const panResponder=useRef(
-
 PanResponder.create({
 
-onMoveShouldSetPanResponder:(e,g)=>{
-return Math.abs(g.dy)>10
-},
+onMoveShouldSetPanResponder:(e,g)=>Math.abs(g.dy)>10,
 
 onPanResponderMove:(e,g)=>{
 
@@ -87,7 +68,6 @@ useNativeDriver:false
 }
 
 })
-
 ).current
 
 return(
@@ -105,8 +85,6 @@ style={[styles.panel,{top:panelY}]}
 
 <View style={styles.row}>
 
-<View style={styles.dot}/>
-
 <TextInput
 placeholder="Origen"
 placeholderTextColor="#aaa"
@@ -123,8 +101,6 @@ style={styles.input}
 </View>
 
 <View style={styles.row}>
-
-<View style={styles.pin}/>
 
 <TextInput
 placeholder="Destino"
@@ -144,73 +120,22 @@ style={styles.action}
 onPress={onConfirmPin}
 >
 <Text style={styles.actionText}>
-📍 Confirmar ubicación del mapa
+📍 Fijar ubicación en el mapa
 </Text>
 </TouchableOpacity>
-
-<View style={styles.transportBox}>
-
-<Text style={styles.transportTitle}>
-Tipo de transporte
-</Text>
-
-<View style={styles.transportRow}>
-
-<TouchableOpacity
-style={[
-styles.transportButton,
-transport==="moto"&&styles.transportActive
-]}
-onPress={()=>setTransport("moto")}
->
-<Text style={styles.transportText}>🛵 Moto</Text>
-{distance>0&&(
-<Text style={styles.price}>${prices.moto}</Text>
-)}
-</TouchableOpacity>
-
-<TouchableOpacity
-style={[
-styles.transportButton,
-transport==="carro"&&styles.transportActive
-]}
-onPress={()=>setTransport("carro")}
->
-<Text style={styles.transportText}>🚗 Carro</Text>
-{distance>0&&(
-<Text style={styles.price}>${prices.carro}</Text>
-)}
-</TouchableOpacity>
-
-<TouchableOpacity
-style={[
-styles.transportButton,
-transport==="triciclo"&&styles.transportActive
-]}
-onPress={()=>setTransport("triciclo")}
->
-<Text style={styles.transportText}>🛺 Triciclo</Text>
-{distance>0&&(
-<Text style={styles.price}>${prices.triciclo}</Text>
-)}
-</TouchableOpacity>
-
-</View>
-
-</View>
 
 {results.length>0&&(
 
 <View style={styles.results}>
 
-{results.map((item:any)=>(
+{results.map((item:any,i:number)=>(
 <TouchableOpacity
-key={item.place_id}
+key={i}
 style={styles.result}
 onPress={()=>onSelectResult(item)}
 >
 <Text style={styles.resultText}>
-{item.display_name}
+{item.properties.name || "Dirección"}
 </Text>
 </TouchableOpacity>
 ))}
@@ -261,22 +186,6 @@ alignItems:"center",
 marginBottom:10
 },
 
-dot:{
-width:12,
-height:12,
-borderRadius:6,
-backgroundColor:"#4DA3FF",
-marginRight:10
-},
-
-pin:{
-width:12,
-height:12,
-borderRadius:6,
-backgroundColor:"#FF6A00",
-marginRight:10
-},
-
 input:{
 flex:1,
 color:"#fff",
@@ -299,44 +208,6 @@ marginTop:15
 actionText:{
 color:"#fff",
 fontSize:16
-},
-
-transportBox:{
-marginTop:20
-},
-
-transportTitle:{
-color:"#fff",
-fontSize:18,
-marginBottom:10
-},
-
-transportRow:{
-flexDirection:"row",
-justifyContent:"space-between"
-},
-
-transportButton:{
-backgroundColor:"#1E1E1E",
-padding:15,
-borderRadius:12,
-width:"30%",
-alignItems:"center"
-},
-
-transportActive:{
-backgroundColor:"#FF6A00"
-},
-
-transportText:{
-color:"#fff",
-fontSize:16
-},
-
-price:{
-color:"#fff",
-marginTop:5,
-fontWeight:"bold"
 },
 
 results:{
