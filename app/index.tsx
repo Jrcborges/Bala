@@ -21,6 +21,10 @@ const [route,setRoute]=useState<any>(null)
 
 const [distance,setDistance]=useState(0)
 
+const [mapCenter,setMapCenter]=useState<any>(null)
+
+const [mapSelectMode,setMapSelectMode]=useState(false)
+
 const [selecting,setSelecting]=
 useState<"pickup"|"destination">("destination")
 
@@ -60,7 +64,6 @@ setPickup(coords)
 }
 
 }
-
 )
 
 })()
@@ -83,13 +86,13 @@ userLocation.latitude
 ],
 
 zoomLevel:15,
-animationDuration:1000
+animationDuration:800
 
 })
 
 },[userLocation])
 
-/* SEARCH */
+/* AUTOCOMPLETE */
 
 const searchAddress=async(text:string)=>{
 
@@ -102,12 +105,12 @@ return
 }
 
 const url=
-`https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5`
+`https://photon.komoot.io/api/?q=${text}&limit=5`
 
 const res=await fetch(url)
 const data=await res.json()
 
-setResults(data)
+setResults(data.features)
 
 }
 
@@ -115,29 +118,31 @@ setResults(data)
 
 const selectPlace=async(place:any)=>{
 
-const loc={
-latitude:parseFloat(place.lat),
-longitude:parseFloat(place.lon)
+const coords={
+latitude:place.geometry.coordinates[1],
+longitude:place.geometry.coordinates[0]
 }
+
+const name=place.properties.name || "Ubicación"
 
 if(selecting==="pickup"){
 
-setPickup(loc)
-setPickupText(place.display_name)
+setPickup(coords)
+setPickupText(name)
 
 }
 
 if(selecting==="destination"){
 
-setDestination(loc)
-setDestText(place.display_name)
+setDestination(coords)
+setDestText(name)
 
-await drawRoute(loc)
+await drawRoute(coords)
 
 }
 
 cameraRef.current?.setCamera({
-centerCoordinate:[loc.longitude,loc.latitude],
+centerCoordinate:[coords.longitude,coords.latitude],
 zoomLevel:15,
 animationDuration:800
 })
@@ -158,7 +163,6 @@ const url=
 `?overview=full&geometries=geojson`
 
 const res=await fetch(url)
-
 const data=await res.json()
 
 if(!data.routes?.length)return
@@ -180,30 +184,25 @@ setDistance(km)
 
 const confirmLocation=async()=>{
 
-const center=await cameraRef.current?.getCenter()
-
-if(!center)return
-
-const coords={
-longitude:center[0],
-latitude:center[1]
-}
+if(!mapCenter)return
 
 if(selecting==="pickup"){
 
-setPickup(coords)
+setPickup(mapCenter)
 setPickupText("Ubicación seleccionada")
 
 }
 
 if(selecting==="destination"){
 
-setDestination(coords)
+setDestination(mapCenter)
 setDestText("Ubicación seleccionada")
 
-await drawRoute(coords)
+await drawRoute(mapCenter)
 
 }
+
+setMapSelectMode(false)
 
 }
 
@@ -248,41 +247,41 @@ return(
 style={{flex:1}}
 logoEnabled={false}
 attributionEnabled={false}
-mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+
+onRegionDidChange={(e)=>{
+
+const center=e.geometry.coordinates
+
+setMapCenter({
+longitude:center[0],
+latitude:center[1]
+})
+
+}}
 >
 
 <MapLibreGL.Camera ref={cameraRef} zoomLevel={14}/>
 
 {pickup&&(
-
 <MapLibreGL.PointAnnotation
 id="pickup"
-coordinate={[
-pickup.longitude,
-pickup.latitude
-]}
+coordinate={[pickup.longitude,pickup.latitude]}
 >
 <View style={styles.pickupMarker}/>
 </MapLibreGL.PointAnnotation>
-
 )}
 
 {destination&&(
-
 <MapLibreGL.PointAnnotation
 id="dest"
-coordinate={[
-destination.longitude,
-destination.latitude
-]}
+coordinate={[destination.longitude,destination.latitude]}
 >
 <View style={styles.destMarker}/>
 </MapLibreGL.PointAnnotation>
-
 )}
 
 {route&&(
-
 <MapLibreGL.ShapeSource
 id="routeSource"
 shape={route}
@@ -295,14 +294,24 @@ lineWidth:6
 }}
 />
 </MapLibreGL.ShapeSource>
-
 )}
 
 </MapLibreGL.MapView>
 
+{mapSelectMode&&(
 <View style={styles.centerPin}>
 <Text style={{fontSize:40}}>📍</Text>
 </View>
+)}
+
+{mapSelectMode&&(
+<TouchableOpacity
+style={styles.confirmBtn}
+onPress={confirmLocation}
+>
+<Text style={{color:"#fff"}}>Confirmar ubicación</Text>
+</TouchableOpacity>
+)}
 
 <TouchableOpacity
 style={styles.gpsBtn}
@@ -320,7 +329,7 @@ onPickupFocus={()=>setSelecting("pickup")}
 onDestFocus={()=>setSelecting("destination")}
 onSearch={searchAddress}
 onSelectResult={selectPlace}
-onConfirmPin={confirmLocation}
+onConfirmPin={()=>setMapSelectMode(true)}
 onCancel={resetTrip}
 />
 
@@ -356,6 +365,15 @@ top:"50%",
 left:"50%",
 marginLeft:-20,
 marginTop:-40
+},
+
+confirmBtn:{
+position:"absolute",
+top:"45%",
+alignSelf:"center",
+backgroundColor:"#FF6A00",
+padding:14,
+borderRadius:10
 },
 
 gpsBtn:{
