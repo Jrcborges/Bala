@@ -92,7 +92,7 @@ animationDuration:800
 
 },[userLocation])
 
-/* AUTOCOMPLETE */
+/* AUTOCOMPLETE MEJORADO */
 
 const searchAddress=async(text:string)=>{
 
@@ -104,13 +104,38 @@ setResults([])
 return
 }
 
+try{
+
 const url=
-`https://photon.komoot.io/api/?q=${text}&limit=5`
+`https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=5&lat=20.0247&lon=-75.8219`
 
 const res=await fetch(url)
 const data=await res.json()
 
-setResults(data.features)
+const filtered=data.features.filter((f:any)=>
+f.properties.street ||
+f.properties.name
+)
+
+if(filtered.length===0){
+
+setResults([{
+properties:{name:"Dirección no encontrada"},
+geometry:{coordinates:[0,0]},
+error:true
+}])
+
+return
+
+}
+
+setResults(filtered)
+
+}catch{
+
+setResults([])
+
+}
 
 }
 
@@ -118,12 +143,17 @@ setResults(data.features)
 
 const selectPlace=async(place:any)=>{
 
+if(place.error)return
+
 const coords={
 latitude:place.geometry.coordinates[1],
 longitude:place.geometry.coordinates[0]
 }
 
-const name=place.properties.name || "Ubicación"
+const name=
+place.properties.street ||
+place.properties.name ||
+"Ubicación"
 
 if(selecting==="pickup"){
 
@@ -157,6 +187,8 @@ const drawRoute=async(dest:any)=>{
 
 if(!pickup)return
 
+try{
+
 const url=
 `https://router.project-osrm.org/route/v1/driving/`+
 `${pickup.longitude},${pickup.latitude};${dest.longitude},${dest.latitude}`+
@@ -176,7 +208,9 @@ setRoute(routeGeoJSON)
 
 const km=data.routes[0].distance/1000
 
-setDistance(km)
+setDistance(Number(km.toFixed(2)))
+
+}catch{}
 
 }
 
