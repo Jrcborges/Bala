@@ -135,7 +135,9 @@ style={styles.result}
 onPress={()=>onSelectResult(item)}
 >
 <Text style={styles.resultText}>
-{item.properties.name || "Dirección"}
+{item.properties.street ||
+item.properties.name ||
+"Dirección"}
 </Text>
 </TouchableOpacity>
 ))}
