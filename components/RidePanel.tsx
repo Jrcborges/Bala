@@ -1,25 +1,26 @@
-import React, { useRef, useState } from "react"
+import React,{useRef,useState} from "react"
 import {
 View,
 Text,
 StyleSheet,
 TextInput,
 TouchableOpacity,
-FlatList,
 Animated,
 PanResponder,
 Dimensions,
 ScrollView
 } from "react-native"
 
-const { height } = Dimensions.get("window")
+const {height}=Dimensions.get("window")
 
-type Props = {
+type Props={
 
 pickupText:string
 destText:string
 
 results:any[]
+
+distance:number
 
 onPickupFocus:()=>void
 onDestFocus:()=>void
@@ -36,8 +37,8 @@ export default function RidePanel({
 
 pickupText,
 destText,
-
 results,
+distance,
 
 onPickupFocus,
 onDestFocus,
@@ -50,22 +51,40 @@ onCancel
 
 }:Props){
 
-const panelY = useRef(new Animated.Value(height*0.45)).current
+const panelY=useRef(new Animated.Value(height*0.65)).current
 
 const [transport,setTransport]=useState("moto")
 
-const panResponder = useRef(
+/* TARIFAS */
+
+const rates={
+moto:0.35,
+carro:0.60,
+triciclo:0.45
+}
+
+const prices={
+moto:(distance*rates.moto).toFixed(2),
+carro:(distance*rates.carro).toFixed(2),
+triciclo:(distance*rates.triciclo).toFixed(2)
+}
+
+/* PANEL DRAG */
+
+const panResponder=useRef(
 
 PanResponder.create({
 
-onMoveShouldSetPanResponder:()=>true,
+onMoveShouldSetPanResponder:(e,gesture)=>{
+return Math.abs(gesture.dy)>10
+},
 
 onPanResponderMove:(e,gesture)=>{
 
-let newY = height*0.45 + gesture.dy
+let newY=height*0.65+gesture.dy
 
-if(newY < 100) newY = 100
-if(newY > height*0.75) newY = height*0.75
+if(newY<100)newY=100
+if(newY>height*0.75)newY=height*0.75
 
 panelY.setValue(newY)
 
@@ -73,7 +92,7 @@ panelY.setValue(newY)
 
 onPanResponderRelease:(e,gesture)=>{
 
-if(gesture.dy < -50){
+if(gesture.dy<-80){
 
 Animated.spring(panelY,{
 toValue:100,
@@ -83,7 +102,7 @@ useNativeDriver:false
 }else{
 
 Animated.spring(panelY,{
-toValue:height*0.45,
+toValue:height*0.65,
 useNativeDriver:false
 }).start()
 
@@ -146,20 +165,18 @@ style={styles.input}
 
 </View>
 
-{/* ACCIONES */}
+{/* PIN */}
 
 <TouchableOpacity
 style={styles.action}
 onPress={onConfirmPin}
 >
-
 <Text style={styles.actionText}>
 📍 Fijar ubicación en el mapa
 </Text>
-
 </TouchableOpacity>
 
-{/* SELECTOR DE TRANSPORTE */}
+{/* TRANSPORT */}
 
 <View style={styles.transportBox}>
 
@@ -172,73 +189,81 @@ Tipo de transporte
 <TouchableOpacity
 style={[
 styles.transportButton,
-transport==="moto" && styles.transportActive
+transport==="moto"&&styles.transportActive
 ]}
 onPress={()=>setTransport("moto")}
 >
-
 <Text style={styles.transportText}>
 🛵 Moto
 </Text>
 
+{distance>0&&(
+<Text style={styles.price}>
+${prices.moto}
+</Text>
+)}
+
 </TouchableOpacity>
 
 <TouchableOpacity
 style={[
 styles.transportButton,
-transport==="carro" && styles.transportActive
+transport==="carro"&&styles.transportActive
 ]}
 onPress={()=>setTransport("carro")}
 >
-
 <Text style={styles.transportText}>
 🚗 Carro
 </Text>
 
+{distance>0&&(
+<Text style={styles.price}>
+${prices.carro}
+</Text>
+)}
+
 </TouchableOpacity>
 
 <TouchableOpacity
 style={[
 styles.transportButton,
-transport==="triciclo" && styles.transportActive
+transport==="triciclo"&&styles.transportActive
 ]}
 onPress={()=>setTransport("triciclo")}
 >
-
 <Text style={styles.transportText}>
 🛺 Triciclo
 </Text>
 
+{distance>0&&(
+<Text style={styles.price}>
+${prices.triciclo}
+</Text>
+)}
+
 </TouchableOpacity>
 
 </View>
 
 </View>
 
-{/* RESULTADOS */}
+{/* RESULTS */}
 
-{results.length>0 &&(
+{results.length>0&&(
 
 <View style={styles.results}>
 
-<FlatList
-data={results}
-keyExtractor={(item)=>item.place_id.toString()}
-renderItem={({item})=>(
-
+{results.map((item)=>(
 <TouchableOpacity
+key={item.place_id}
 style={styles.result}
 onPress={()=>onSelectResult(item)}
 >
-
 <Text style={styles.resultText}>
 {item.display_name}
 </Text>
-
 </TouchableOpacity>
-
-)}
-/>
+))}
 
 </View>
 
@@ -258,8 +283,8 @@ panel:{
 position:"absolute",
 left:0,
 right:0,
-height:"100%",
-backgroundColor:"#1C1C1E",
+height:height,
+backgroundColor:"#121212",
 borderTopLeftRadius:25,
 borderTopRightRadius:25,
 padding:20
@@ -275,7 +300,7 @@ marginBottom:15
 },
 
 inputs:{
-backgroundColor:"#2b2b2b",
+backgroundColor:"#1E1E1E",
 borderRadius:15,
 padding:15
 },
@@ -342,7 +367,7 @@ justifyContent:"space-between"
 },
 
 transportButton:{
-backgroundColor:"#2b2b2b",
+backgroundColor:"#1E1E1E",
 padding:15,
 borderRadius:12,
 width:"30%",
@@ -358,9 +383,14 @@ color:"#fff",
 fontSize:16
 },
 
+price:{
+color:"#fff",
+marginTop:5,
+fontWeight:"bold"
+},
+
 results:{
-marginTop:20,
-maxHeight:250
+marginTop:20
 },
 
 result:{
@@ -373,4 +403,4 @@ resultText:{
 color:"#fff"
 }
 
-})
+}
