@@ -394,6 +394,7 @@ onPress={goToMyLocation}
 pickupText={pickupText}
 destText={destText}
 results={results}
+distance={distance}
 onPickupFocus={()=>setSelecting("pickup")}
 onDestFocus={()=>setSelecting("destination")}
 onSearch={searchAddress}
