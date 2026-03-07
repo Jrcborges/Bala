@@ -33,6 +33,8 @@ const [results,setResults]=useState<any[]>([])
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
+const [followUser,setFollowUser]=useState(true)
+
 /* GPS */
 
 useEffect(()=>{
@@ -72,11 +74,11 @@ return()=>sub?.remove()
 
 },[])
 
-/* centrar mapa */
+/* centrar mapa solo si followUser */
 
 useEffect(()=>{
 
-if(!userLocation)return
+if(!userLocation || !followUser)return
 
 cameraRef.current?.setCamera({
 
@@ -90,9 +92,9 @@ animationDuration:800
 
 })
 
-},[userLocation])
+},[userLocation,followUser])
 
-/* AUTOCOMPLETE MEJORADO */
+/* AUTOCOMPLETE */
 
 const searchAddress=async(text:string)=>{
 
@@ -106,8 +108,16 @@ return
 
 try{
 
+let query=text
+.toLowerCase()
+.replace("entre"," ")
+.replace(" y "," ")
+.replace("esquina"," ")
+
+query=query+" Santiago de Cuba"
+
 const url=
-`https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=5&lat=20.0247&lon=-75.8219`
+`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
 
 const res=await fetch(url)
 const data=await res.json()
@@ -170,6 +180,8 @@ setDestText(name)
 await drawRoute(coords)
 
 }
+
+setFollowUser(true)
 
 cameraRef.current?.setCamera({
 centerCoordinate:[coords.longitude,coords.latitude],
@@ -257,6 +269,8 @@ const goToMyLocation=()=>{
 
 if(!userLocation)return
 
+setFollowUser(true)
+
 cameraRef.current?.setCamera({
 
 centerCoordinate:[
@@ -282,6 +296,10 @@ style={{flex:1}}
 logoEnabled={false}
 attributionEnabled={false}
 mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+
+onRegionWillChange={()=>{
+setFollowUser(false)
+}}
 
 onRegionDidChange={(e)=>{
 
