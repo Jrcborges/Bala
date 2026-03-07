@@ -8,8 +8,6 @@ import RidePanel from "../components/RidePanel"
 
 MapLibreGL.setAccessToken(null)
 
-/* ================= UTILS ================= */
-
 const toRad=(v:number)=>v*Math.PI/180
 
 const getDistanceKm=(lat1:number,lon1:number,lat2:number,lon2:number)=>{
@@ -29,13 +27,11 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)))
 
 }
 
-/* ================= SCREEN ================= */
-
 export default function Index(){
 
 const cameraRef=useRef<any>(null)
 
-/* STATE */
+const lastCall=useRef(0)
 
 const [userLocation,setUserLocation]=useState<any>(null)
 
@@ -58,7 +54,7 @@ const [results,setResults]=useState<any[]>([])
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
-/* ================= GPS ================= */
+/* GPS */
 
 useEffect(()=>{
 
@@ -96,15 +92,32 @@ return()=>sub?.remove()
 
 },[])
 
-/* ================= SEARCH ================= */
+/* centrar mapa */
+
+useEffect(()=>{
+
+if(!userLocation)return
+
+cameraRef.current?.setCamera({
+
+centerCoordinate:[
+userLocation.longitude,
+userLocation.latitude
+],
+
+zoomLevel:15,
+animationDuration:1000
+
+})
+
+},[userLocation])
+
+/* SEARCH */
 
 const searchAddress=async(text:string)=>{
 
-if(selecting==="pickup"){
-setPickupText(text)
-}else{
-setDestText(text)
-}
+if(selecting==="pickup") setPickupText(text)
+else setDestText(text)
 
 if(text.length<3){
 setResults([])
@@ -122,7 +135,7 @@ setResults(data)
 
 }
 
-/* ================= SELECT PLACE ================= */
+/* SELECT RESULT */
 
 const selectPlace=async(place:any)=>{
 
@@ -134,7 +147,6 @@ longitude:parseFloat(place.lon)
 if(selecting==="pickup"){
 
 setPickup(loc)
-
 setPickupText(place.display_name)
 
 }
@@ -142,18 +154,23 @@ setPickupText(place.display_name)
 if(selecting==="destination"){
 
 setDestination(loc)
-
 setDestText(place.display_name)
 
 await drawRoute(loc)
 
 }
 
+cameraRef.current?.setCamera({
+centerCoordinate:[loc.longitude,loc.latitude],
+zoomLevel:15,
+animationDuration:800
+})
+
 setResults([])
 
 }
 
-/* ================= ROUTE ================= */
+/* ROUTE */
 
 const drawRoute=async(dest:any)=>{
 
@@ -183,21 +200,27 @@ setDistance(km)
 
 }
 
-/* ================= MAP CENTER ================= */
+/* MAP MOVE */
 
 const onMapMove=async(e:any)=>{
 
-const coords=e.geometry.coordinates
+const now=Date.now()
 
-const center={
-longitude:coords[0],
-latitude:coords[1]
+if(now-lastCall.current<1200) return
+
+lastCall.current=now
+
+const center=e.properties.center
+
+const coords={
+longitude:center[0],
+latitude:center[1]
 }
 
-setMapCenter(center)
+setMapCenter(coords)
 
 const url=
-`https://nominatim.openstreetmap.org/reverse?lat=${center.latitude}&lon=${center.longitude}&format=json`
+`https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`
 
 const res=await fetch(url)
 
@@ -207,7 +230,7 @@ setCenterAddress(data.display_name)
 
 }
 
-/* ================= CONFIRM PIN ================= */
+/* CONFIRM PIN */
 
 const confirmLocation=async()=>{
 
@@ -216,7 +239,6 @@ if(!mapCenter)return
 if(selecting==="pickup"){
 
 setPickup(mapCenter)
-
 setPickupText(centerAddress)
 
 }
@@ -224,7 +246,6 @@ setPickupText(centerAddress)
 if(selecting==="destination"){
 
 setDestination(mapCenter)
-
 setDestText(centerAddress)
 
 await drawRoute(mapCenter)
@@ -233,19 +254,18 @@ await drawRoute(mapCenter)
 
 }
 
-/* ================= RESET ================= */
+/* RESET */
 
 const resetTrip=()=>{
 
 setDestination(null)
 setRoute(null)
-
 setDestText("")
 setResults([])
 
 }
 
-/* ================= GPS BUTTON ================= */
+/* GPS BUTTON */
 
 const goToMyLocation=()=>{
 
@@ -265,7 +285,7 @@ animationDuration:800
 
 }
 
-/* ================= UI ================= */
+/* UI */
 
 return(
 
@@ -281,8 +301,6 @@ onRegionDidChange={onMapMove}
 
 <MapLibreGL.Camera ref={cameraRef} zoomLevel={14}/>
 
-{/* PICKUP */}
-
 {pickup&&(
 
 <MapLibreGL.PointAnnotation
@@ -292,14 +310,10 @@ pickup.longitude,
 pickup.latitude
 ]}
 >
-
 <View style={styles.pickupMarker}/>
-
 </MapLibreGL.PointAnnotation>
 
 )}
-
-{/* DEST */}
 
 {destination&&(
 
@@ -310,14 +324,10 @@ destination.longitude,
 destination.latitude
 ]}
 >
-
 <View style={styles.destMarker}/>
-
 </MapLibreGL.PointAnnotation>
 
 )}
-
-{/* ROUTE */}
 
 {route&&(
 
@@ -325,7 +335,6 @@ destination.latitude
 id="routeSource"
 shape={route}
 >
-
 <MapLibreGL.LineLayer
 id="routeLine"
 style={{
@@ -333,91 +342,64 @@ lineColor:"#FF6A00",
 lineWidth:6
 }}
 />
-
 </MapLibreGL.ShapeSource>
 
 )}
 
 </MapLibreGL.MapView>
 
-{/* CENTER PIN */}
+{!destination &&(
 
 <View style={styles.centerPin}>
 <Text style={{fontSize:40}}>📍</Text>
 </View>
 
-{/* ADDRESS */}
+)}
 
 {centerAddress!==""&&(
 
 <View style={styles.addressBox}>
-
-<Text style={styles.addressText}>
-{centerAddress}
-</Text>
-
+<Text style={styles.addressText}>{centerAddress}</Text>
 </View>
 
 )}
-
-{/* CONFIRM BUTTON */}
 
 <TouchableOpacity
 style={styles.confirmBtn}
 onPress={confirmLocation}
 >
-
 <Text style={{color:"#fff"}}>
 Confirmar ubicación
 </Text>
-
 </TouchableOpacity>
-
-{/* DISTANCE */}
 
 {distance>0&&(
 
 <View style={styles.distanceBox}>
-
 <Text style={{color:"#fff"}}>
 Distancia {distance.toFixed(2)} km
 </Text>
-
 </View>
 
 )}
-
-{/* GPS BUTTON */}
 
 <TouchableOpacity
 style={styles.gpsBtn}
 onPress={goToMyLocation}
 >
-
-<Text style={{fontSize:22}}>
-📍
-</Text>
-
+<Text style={{fontSize:22}}>📍</Text>
 </TouchableOpacity>
 
-{/* PANEL */}
-
 <RidePanel
-
 pickupText={pickupText}
 destText={destText}
-
 results={results}
-
 onPickupFocus={()=>setSelecting("pickup")}
 onDestFocus={()=>setSelecting("destination")}
-
 onSearch={searchAddress}
-
 onSelectResult={selectPlace}
-
+onConfirmPin={confirmLocation}
 onCancel={resetTrip}
-
 />
 
 </View>
@@ -425,8 +407,6 @@ onCancel={resetTrip}
 )
 
 }
-
-/* ================= STYLES ================= */
 
 const styles=StyleSheet.create({
 
@@ -460,7 +440,7 @@ addressBox:{
 position:"absolute",
 top:120,
 alignSelf:"center",
-backgroundColor:"#1C1C1E",
+backgroundColor:"#121212",
 padding:10,
 borderRadius:10
 },
@@ -472,7 +452,7 @@ maxWidth:250
 
 confirmBtn:{
 position:"absolute",
-top:180,
+top:"45%",
 alignSelf:"center",
 backgroundColor:"#FF6A00",
 padding:12,
@@ -483,7 +463,7 @@ distanceBox:{
 position:"absolute",
 bottom:120,
 alignSelf:"center",
-backgroundColor:"#1C1C1E",
+backgroundColor:"#121212",
 padding:10,
 borderRadius:10
 },
