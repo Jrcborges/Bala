@@ -13,26 +13,6 @@ ScrollView
 
 const {height}=Dimensions.get("window")
 
-type Props={
-
-pickupText:string
-destText:string
-
-results:any[]
-
-distance:number
-
-onPickupFocus:()=>void
-onDestFocus:()=>void
-
-onSearch:(text:string)=>void
-onSelectResult:(place:any)=>void
-
-onConfirmPin:()=>void
-onCancel:()=>void
-
-}
-
 export default function RidePanel({
 
 pickupText,
@@ -49,13 +29,11 @@ onSelectResult,
 onConfirmPin,
 onCancel
 
-}:Props){
+}:any){
 
 const panelY=useRef(new Animated.Value(height*0.65)).current
 
 const [transport,setTransport]=useState("moto")
-
-/* TARIFAS */
 
 const rates={
 moto:0.35,
@@ -69,19 +47,17 @@ carro:(distance*rates.carro).toFixed(2),
 triciclo:(distance*rates.triciclo).toFixed(2)
 }
 
-/* PANEL DRAG */
-
 const panResponder=useRef(
 
 PanResponder.create({
 
-onMoveShouldSetPanResponder:(e,gesture)=>{
-return Math.abs(gesture.dy)>10
+onMoveShouldSetPanResponder:(e,g)=>{
+return Math.abs(g.dy)>10
 },
 
-onPanResponderMove:(e,gesture)=>{
+onPanResponderMove:(e,g)=>{
 
-let newY=height*0.65+gesture.dy
+let newY=height*0.65+g.dy
 
 if(newY<100)newY=100
 if(newY>height*0.75)newY=height*0.75
@@ -90,9 +66,9 @@ panelY.setValue(newY)
 
 },
 
-onPanResponderRelease:(e,gesture)=>{
+onPanResponderRelease:(e,g)=>{
 
-if(gesture.dy<-80){
+if(g.dy<-80){
 
 Animated.spring(panelY,{
 toValue:100,
@@ -124,8 +100,6 @@ style={[styles.panel,{top:panelY}]}
 <View style={styles.handle}/>
 
 <ScrollView>
-
-{/* INPUTS */}
 
 <View style={styles.inputs}>
 
@@ -165,18 +139,14 @@ style={styles.input}
 
 </View>
 
-{/* PIN */}
-
 <TouchableOpacity
 style={styles.action}
 onPress={onConfirmPin}
 >
 <Text style={styles.actionText}>
-📍 Fijar ubicación en el mapa
+📍 Confirmar ubicación del mapa
 </Text>
 </TouchableOpacity>
-
-{/* TRANSPORT */}
 
 <View style={styles.transportBox}>
 
@@ -193,16 +163,10 @@ transport==="moto"&&styles.transportActive
 ]}
 onPress={()=>setTransport("moto")}
 >
-<Text style={styles.transportText}>
-🛵 Moto
-</Text>
-
+<Text style={styles.transportText}>🛵 Moto</Text>
 {distance>0&&(
-<Text style={styles.price}>
-${prices.moto}
-</Text>
+<Text style={styles.price}>${prices.moto}</Text>
 )}
-
 </TouchableOpacity>
 
 <TouchableOpacity
@@ -212,16 +176,10 @@ transport==="carro"&&styles.transportActive
 ]}
 onPress={()=>setTransport("carro")}
 >
-<Text style={styles.transportText}>
-🚗 Carro
-</Text>
-
+<Text style={styles.transportText}>🚗 Carro</Text>
 {distance>0&&(
-<Text style={styles.price}>
-${prices.carro}
-</Text>
+<Text style={styles.price}>${prices.carro}</Text>
 )}
-
 </TouchableOpacity>
 
 <TouchableOpacity
@@ -231,29 +189,21 @@ transport==="triciclo"&&styles.transportActive
 ]}
 onPress={()=>setTransport("triciclo")}
 >
-<Text style={styles.transportText}>
-🛺 Triciclo
-</Text>
-
+<Text style={styles.transportText}>🛺 Triciclo</Text>
 {distance>0&&(
-<Text style={styles.price}>
-${prices.triciclo}
-</Text>
+<Text style={styles.price}>${prices.triciclo}</Text>
 )}
-
 </TouchableOpacity>
 
 </View>
 
 </View>
 
-{/* RESULTS */}
-
 {results.length>0&&(
 
 <View style={styles.results}>
 
-{results.map((item)=>(
+{results.map((item:any)=>(
 <TouchableOpacity
 key={item.place_id}
 style={styles.result}
@@ -283,7 +233,7 @@ panel:{
 position:"absolute",
 left:0,
 right:0,
-height:height,
+height:height*0.8,
 backgroundColor:"#121212",
 borderTopLeftRadius:25,
 borderTopRightRadius:25,
