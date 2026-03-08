@@ -29,67 +29,6 @@ const [results,setResults]=useState([])
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
-/* ---------------- INTERSECCION ---------------- */
-
-function parseIntersection(text){
-
-if(!text) return null
-
-text=text.toLowerCase()
-
-text=text
-.replace("esquina","")
-.replace("entre","")
-.replace(" con ",",")
-.replace(" y ",",")
-.replace("&",",")
-.replace(/\s+/g," ")
-.trim()
-
-let parts=text.split(",")
-
-if(parts.length>=2){
-return{
-street1:parts[0].trim(),
-street2:parts[1].trim()
-}
-}
-
-return null
-}
-
-/* ---------------- BUSCAR INTERSECCION ---------------- */
-
-async function searchIntersection(street1,street2){
-
-try{
-
-const query=`${street1} & ${street2} Santiago de Cuba`
-
-const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
-
-const res=await fetch(url)
-const data=await res.json()
-
-if(data.features?.length){
-
-const coords=data.features[0].geometry.coordinates
-
-return{
-latitude:coords[1],
-longitude:coords[0]
-}
-
-}
-
-return null
-
-}catch{
-return null
-}
-
-}
-
 /* ---------------- GPS ---------------- */
 
 useEffect(()=>{
@@ -153,73 +92,21 @@ return
 
 try{
 
-/* detectar esquina */
+let query=text+", Santiago de Cuba, Cuba"
 
-const intersection=parseIntersection(text)
+const url=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
 
-if(intersection){
-
-const coords=await searchIntersection(
-intersection.street1,
-intersection.street2
-)
-
-if(coords){
-
-setResults([
-{
-name:`${intersection.street1} y ${intersection.street2}`,
-coords
+const res=await fetch(url,{
+headers:{
+"User-Agent":"ride-app"
 }
-])
-
-return
-}
-
-}
-
-/* photon */
-
-let query=text+" Santiago de Cuba"
-
-const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
-
-const res=await fetch(url)
+})
 
 const data=await res.json()
 
-if(data.features?.length){
+if(data?.length){
 
-const list=data.features.map(f=>({
-
-name:
-f.properties.street||
-f.properties.name||
-"Ubicación",
-
-coords:{
-latitude:f.geometry.coordinates[1],
-longitude:f.geometry.coordinates[0]
-}
-
-}))
-
-setResults(list)
-return
-
-}
-
-/* fallback nominatim */
-
-const url2=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
-
-const res2=await fetch(url2)
-
-const data2=await res2.json()
-
-if(data2?.length){
-
-const list=data2.map(p=>({
+const list=data.map(p=>({
 
 name:p.display_name,
 
@@ -260,13 +147,14 @@ if(selecting==="destination"){
 setDestination(coords)
 setDestText(place.name)
 await drawRoute(coords)
-}
 
 cameraRef.current?.setCamera({
 centerCoordinate:[coords.longitude,coords.latitude],
 zoomLevel:16,
 animationDuration:800
 })
+
+}
 
 setResults([])
 
@@ -318,6 +206,13 @@ if(selecting==="destination"){
 setDestination(mapCenter)
 setDestText("Ubicación seleccionada")
 await drawRoute(mapCenter)
+
+cameraRef.current?.setCamera({
+centerCoordinate:[mapCenter.longitude,mapCenter.latitude],
+zoomLevel:16,
+animationDuration:800
+})
+
 }
 
 setMapSelectMode(false)
