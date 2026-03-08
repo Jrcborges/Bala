@@ -16,8 +16,6 @@ const panelY=useRef(new Animated.Value(height*0.62)).current
 
 const [transport,setTransport]=useState("moto")
 
-/* Tarifas */
-
 const rates={
 moto:0.35,
 carro:0.6,
@@ -29,8 +27,6 @@ moto:(distance*rates.moto).toFixed(2),
 carro:(distance*rates.carro).toFixed(2),
 triciclo:(distance*rates.triciclo).toFixed(2)
 }
-
-/* PANEL ARRASTRABLE */
 
 const panResponder=useRef(PanResponder.create({
 
@@ -67,8 +63,6 @@ return(
 
 <ScrollView showsVerticalScrollIndicator={false}>
 
-{/* ORIGEN / DESTINO */}
-
 <View style={styles.locationBox}>
 
 <View style={styles.locationRow}>
@@ -83,10 +77,6 @@ onFocus={onPickupFocus}
 onChangeText={(text)=>onSearch(text,"pickup")}
 style={styles.input}
 />
-
-<TouchableOpacity onPress={onConfirmPin}>
-<Text style={styles.mapIcon}>🗺</Text>
-</TouchableOpacity>
 
 </View>
 
@@ -105,10 +95,6 @@ onChangeText={(text)=>onSearch(text,"destination")}
 style={styles.input}
 />
 
-<TouchableOpacity onPress={onConfirmPin}>
-<Text style={styles.mapIcon}>🗺</Text>
-</TouchableOpacity>
-
 <TouchableOpacity onPress={onCancel}>
 <Text style={styles.close}>✕</Text>
 </TouchableOpacity>
@@ -117,13 +103,9 @@ style={styles.input}
 
 </View>
 
-{/* BOTON MAPA EXTRA */}
-
 <TouchableOpacity style={styles.mapButton} onPress={onConfirmPin}>
 <Text style={styles.mapButtonText}>📍 Elegir ubicación directamente en el mapa</Text>
 </TouchableOpacity>
-
-{/* TRANSPORTE */}
 
 <View style={styles.transportBox}>
 
@@ -166,8 +148,6 @@ ${prices[t]}
 </View>
 
 </View>
-
-{/* RESULTADOS BUSQUEDA */}
 
 {results.length>0 && (
 
@@ -213,10 +193,7 @@ height:height*0.82,
 backgroundColor:"#121212",
 borderTopLeftRadius:30,
 borderTopRightRadius:30,
-padding:20,
-shadowColor:"#000",
-shadowOpacity:0.4,
-shadowRadius:10
+padding:20
 },
 
 handle:{
@@ -271,11 +248,6 @@ fontSize:16
 
 close:{
 color:"#aaa",
-fontSize:18,
-marginLeft:10
-},
-
-mapIcon:{
 fontSize:18,
 marginLeft:10
 },
