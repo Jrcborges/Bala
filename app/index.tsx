@@ -24,15 +24,6 @@ export default function Index(){
   const [pickupText,setPickupText]=useState("")
   const [destText,setDestText]=useState("")
 
-  /* CENTRAR SOLO AL INICIO EN SANTIAGO DE CUBA */
-  useEffect(()=>{
-    cameraRef.current?.setCamera({
-      centerCoordinate: [-75.8219,20.0247],
-      zoomLevel:15,
-      animationDuration:1000
-    })
-  },[])
-
   /* GPS opcional */
   useEffect(()=>{
     let sub:any
@@ -130,7 +121,10 @@ export default function Index(){
           setMapCenter({longitude:center[0],latitude:center[1]})
         }}
       >
-        <MapLibreGL.Camera ref={cameraRef} zoomLevel={14}/>
+        <MapLibreGL.Camera ref={cameraRef} defaultSettings={{
+    centerCoordinate:[-75.8219,20.0247],
+    zoomLevel:13
+  }}/>
         {pickup && <MapLibreGL.PointAnnotation id="pickup" coordinate={[pickup.longitude,pickup.latitude]}><View style={styles.pickupMarker}/></MapLibreGL.PointAnnotation>}
         {destination && <MapLibreGL.PointAnnotation id="dest" coordinate={[destination.longitude,destination.latitude]}><View style={styles.destMarker}/></MapLibreGL.PointAnnotation>}
         {route && <MapLibreGL.ShapeSource id="routeSource" shape={route}><MapLibreGL.LineLayer id="routeLine" style={{lineColor:"#FF6A00",lineWidth:6}}/></MapLibreGL.ShapeSource>}
