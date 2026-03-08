@@ -11,6 +11,7 @@ MapLibreGL.setAccessToken(null)
 export default function Index(){
 
 const cameraRef=useRef(null)
+const debounceRef=useRef(null)
 
 const [userLocation,setUserLocation]=useState(null)
 const [pickup,setPickup]=useState(null)
@@ -28,7 +29,7 @@ const [results,setResults]=useState([])
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
-/* ------------------ DETECTAR INTERSECCIÓN ------------------ */
+/* ---------------- INTERSECCION ---------------- */
 
 function parseIntersection(text){
 
@@ -39,45 +40,44 @@ text=text.toLowerCase()
 text=text
 .replace("esquina","")
 .replace("entre","")
+.replace(" con ",",")
 .replace(" y ",",")
+.replace("&",",")
 .replace(/\s+/g," ")
 .trim()
 
 let parts=text.split(",")
 
 if(parts.length>=2){
-
 return{
 street1:parts[0].trim(),
 street2:parts[1].trim()
 }
-
 }
 
 return null
 }
 
-/* ------------------ BUSCAR INTERSECCIÓN ------------------ */
+/* ---------------- BUSCAR INTERSECCION ---------------- */
 
 async function searchIntersection(street1,street2){
 
 try{
 
-const query=`${street1} ${street2} Santiago de Cuba`
+const query=`${street1} & ${street2} Santiago de Cuba`
 
-const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`
+const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
 
 const res=await fetch(url)
-
 const data=await res.json()
 
-if(data.features && data.features.length>0){
+if(data.features?.length){
 
 const coords=data.features[0].geometry.coordinates
 
 return{
-lat:coords[1],
-lng:coords[0]
+latitude:coords[1],
+longitude:coords[0]
 }
 
 }
@@ -85,14 +85,12 @@ lng:coords[0]
 return null
 
 }catch{
-
 return null
-
 }
 
 }
 
-/* ------------------ GPS ------------------ */
+/* ---------------- GPS ---------------- */
 
 useEffect(()=>{
 
@@ -126,18 +124,36 @@ return()=>sub?.remove()
 
 },[])
 
-/* ------------------ BUSCADOR ------------------ */
+/* ---------------- BUSCADOR ---------------- */
 
-const searchAddress=async(text)=>{
+const searchAddress=(text,type)=>{
 
-if(selecting==="pickup") setPickupText(text)
-else setDestText(text)
+if(type==="pickup"){
+setSelecting("pickup")
+setPickupText(text)
+}else{
+setSelecting("destination")
+setDestText(text)
+}
 
-if(text.length<3){setResults([]);return}
+if(debounceRef.current){
+clearTimeout(debounceRef.current)
+}
+
+debounceRef.current=setTimeout(()=>doSearch(text),400)
+
+}
+
+async function doSearch(text){
+
+if(text.length<3){
+setResults([])
+return
+}
 
 try{
 
-/* detectar intersección */
+/* detectar esquina */
 
 const intersection=parseIntersection(text)
 
@@ -150,46 +166,21 @@ intersection.street2
 
 if(coords){
 
-setResults([])
-
-const location={
-latitude:coords.lat,
-longitude:coords.lng
+setResults([
+{
+name:`${intersection.street1} y ${intersection.street2}`,
+coords
 }
-
-if(selecting==="pickup") setPickup(location)
-
-if(selecting==="destination"){
-setDestination(location)
-await drawRoute(location)
-}
-
-cameraRef.current?.setCamera({
-centerCoordinate:[coords.lng,coords.lat],
-zoomLevel:16,
-animationDuration:800
-})
+])
 
 return
-
 }
 
 }
-
-/* limpiar búsqueda */
-
-let query=text
-.toLowerCase()
-.replace(/entre/g," ")
-.replace(/ y /g," ")
-.replace(/esquina/g," ")
-.replace(/,/g," ")
-.replace(/\s+/g," ")
-.trim()
-
-query=query+" Santiago de Cuba"
 
 /* photon */
+
+let query=text+" Santiago de Cuba"
 
 const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
 
@@ -197,25 +188,54 @@ const res=await fetch(url)
 
 const data=await res.json()
 
-const filtered=data.features.filter(
-(f)=>f.properties.street||f.properties.name
-)
+if(data.features?.length){
 
-if(filtered.length===0){
+const list=data.features.map(f=>({
 
-setResults([
-{
-properties:{name:"Dirección no encontrada"},
-geometry:{coordinates:[0,0]},
-error:true
+name:
+f.properties.street||
+f.properties.name||
+"Ubicación",
+
+coords:{
+latitude:f.geometry.coordinates[1],
+longitude:f.geometry.coordinates[0]
 }
-])
 
+}))
+
+setResults(list)
 return
 
 }
 
-setResults(filtered)
+/* fallback nominatim */
+
+const url2=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+
+const res2=await fetch(url2)
+
+const data2=await res2.json()
+
+if(data2?.length){
+
+const list=data2.map(p=>({
+
+name:p.display_name,
+
+coords:{
+latitude:parseFloat(p.lat),
+longitude:parseFloat(p.lon)
+}
+
+}))
+
+setResults(list)
+return
+
+}
+
+setResults([])
 
 }catch{
 
@@ -225,30 +245,20 @@ setResults([])
 
 }
 
-/* ------------------ SELECCIONAR RESULTADO ------------------ */
+/* ---------------- SELECCIONAR RESULTADO ---------------- */
 
 const selectPlace=async(place)=>{
 
-if(place.error) return
-
-const coords={
-latitude:place.geometry.coordinates[1],
-longitude:place.geometry.coordinates[0]
-}
-
-const name=
-place.properties.street||
-place.properties.name||
-"Ubicación"
+const coords=place.coords
 
 if(selecting==="pickup"){
 setPickup(coords)
-setPickupText(name)
+setPickupText(place.name)
 }
 
 if(selecting==="destination"){
 setDestination(coords)
-setDestText(name)
+setDestText(place.name)
 await drawRoute(coords)
 }
 
@@ -262,7 +272,7 @@ setResults([])
 
 }
 
-/* ------------------ RUTA ------------------ */
+/* ---------------- RUTA ---------------- */
 
 const drawRoute=async(dest)=>{
 
@@ -293,7 +303,7 @@ setDistance(Number(km.toFixed(2)))
 
 }
 
-/* ------------------ CONFIRMAR PIN ------------------ */
+/* ---------------- CONFIRMAR PIN ---------------- */
 
 const confirmLocation=async()=>{
 
@@ -321,7 +331,7 @@ setDestText("")
 setResults([])
 }
 
-/* ------------------ GPS BOTON ------------------ */
+/* ---------------- GPS BOTON ---------------- */
 
 const goToMyLocation=()=>{
 
@@ -335,7 +345,7 @@ animationDuration:800
 
 }
 
-/* ------------------ UI ------------------ */
+/* ---------------- UI ---------------- */
 
 return(
 
