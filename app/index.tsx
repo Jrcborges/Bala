@@ -4,14 +4,22 @@ import {StyleSheet,Text,TouchableOpacity,View} from "react-native"
 import MapLibreGL from "@maplibre/maplibre-react-native"
 import * as Location from "expo-location"
 
+import {createClient} from "@supabase/supabase-js"
+
 import RidePanel from "../components/RidePanel"
 
 MapLibreGL.setAccessToken(null)
 
+/* SUPABASE */
+
+const supabase=createClient(
+"https://TU_PROYECTO.supabase.co",
+"TU_PUBLIC_ANON_KEY"
+)
+
 export default function Index(){
 
 const cameraRef=useRef(null)
-const debounceRef=useRef(null)
 
 const [userLocation,setUserLocation]=useState(null)
 const [pickup,setPickup]=useState(null)
@@ -19,17 +27,16 @@ const [destination,setDestination]=useState(null)
 const [route,setRoute]=useState(null)
 const [distance,setDistance]=useState(0)
 
-const [mapCenter,setMapCenter]=useState(null)
-const [mapSelectMode,setMapSelectMode]=useState(false)
-
-const [selecting,setSelecting]=useState("destination")
+const [driverLocation,setDriverLocation]=useState(null)
 
 const [results,setResults]=useState([])
 
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
-/* ---------------- GPS ---------------- */
+const tripId=847392 // aquí luego pondrás el viaje real
+
+/* ---------------- GPS CLIENTE ---------------- */
 
 useEffect(()=>{
 
@@ -63,48 +70,61 @@ return()=>sub?.remove()
 
 },[])
 
-/* ---------------- BUSCADOR ---------------- */
+/* ---------------- SUPABASE REALTIME ---------------- */
 
-const searchAddress=(text,type)=>{
+useEffect(()=>{
+
+const channel=supabase
+.channel("driver-location")
+.on(
+"postgres_changes",
+{
+event:"UPDATE",
+schema:"public",
+table:"trips",
+filter:`id=eq.${tripId}`
+},
+(payload)=>{
+
+const data=payload.new
+
+setDriverLocation({
+latitude:data.driver_lat,
+longitude:data.driver_lng
+})
+
+}
+)
+.subscribe()
+
+return()=>{
+supabase.removeChannel(channel)
+}
+
+},[])
+
+/* ---------------- BUSCADOR NOMINATIM ---------------- */
+
+const searchAddress=async(text,type)=>{
 
 if(type==="pickup"){
-setSelecting("pickup")
 setPickupText(text)
 }else{
-setSelecting("destination")
 setDestText(text)
 }
-
-if(debounceRef.current){
-clearTimeout(debounceRef.current)
-}
-
-debounceRef.current=setTimeout(()=>doSearch(text),400)
-
-}
-
-async function doSearch(text){
 
 if(text.length<3){
 setResults([])
 return
 }
 
-try{
-
 let query=text+", Santiago de Cuba, Cuba"
 
-const url=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
+const url=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
 
-const res=await fetch(url,{
-headers:{
-"User-Agent":"ride-app"
-}
-})
+const res=await fetch(url)
 
 const data=await res.json()
-
-if(data?.length){
 
 const list=data.map(p=>({
 
@@ -118,17 +138,6 @@ longitude:parseFloat(p.lon)
 }))
 
 setResults(list)
-return
-
-}
-
-setResults([])
-
-}catch{
-
-setResults([])
-
-}
 
 }
 
@@ -138,15 +147,8 @@ const selectPlace=async(place)=>{
 
 const coords=place.coords
 
-if(selecting==="pickup"){
-setPickup(coords)
-setPickupText(place.name)
-}
-
-if(selecting==="destination"){
 setDestination(coords)
 setDestText(place.name)
-await drawRoute(coords)
 
 cameraRef.current?.setCamera({
 centerCoordinate:[coords.longitude,coords.latitude],
@@ -154,7 +156,7 @@ zoomLevel:16,
 animationDuration:800
 })
 
-}
+await drawRoute(coords)
 
 setResults([])
 
@@ -166,15 +168,11 @@ const drawRoute=async(dest)=>{
 
 if(!pickup) return
 
-try{
-
 const url=`https://router.project-osrm.org/route/v1/driving/${pickup.longitude},${pickup.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`
 
 const res=await fetch(url)
 
 const data=await res.json()
-
-if(!data.routes?.length) return
 
 const routeGeoJSON={
 type:"Feature",
@@ -187,43 +185,6 @@ const km=data.routes[0].distance/1000
 
 setDistance(Number(km.toFixed(2)))
 
-}catch{}
-
-}
-
-/* ---------------- CONFIRMAR PIN ---------------- */
-
-const confirmLocation=async()=>{
-
-if(!mapCenter) return
-
-if(selecting==="pickup"){
-setPickup(mapCenter)
-setPickupText("Ubicación seleccionada")
-}
-
-if(selecting==="destination"){
-setDestination(mapCenter)
-setDestText("Ubicación seleccionada")
-await drawRoute(mapCenter)
-
-cameraRef.current?.setCamera({
-centerCoordinate:[mapCenter.longitude,mapCenter.latitude],
-zoomLevel:16,
-animationDuration:800
-})
-
-}
-
-setMapSelectMode(false)
-
-}
-
-const resetTrip=()=>{
-setDestination(null)
-setRoute(null)
-setDestText("")
-setResults([])
 }
 
 /* ---------------- GPS BOTON ---------------- */
@@ -234,8 +195,7 @@ if(!userLocation) return
 
 cameraRef.current?.setCamera({
 centerCoordinate:[userLocation.longitude,userLocation.latitude],
-zoomLevel:15,
-animationDuration:800
+zoomLevel:15
 })
 
 }
@@ -251,10 +211,6 @@ style={{flex:1}}
 logoEnabled={false}
 attributionEnabled={false}
 mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-onRegionDidChange={(e)=>{
-const center=e.geometry.coordinates
-setMapCenter({longitude:center[0],latitude:center[1]})
-}}
 >
 
 <MapLibreGL.Camera
@@ -265,6 +221,8 @@ zoomLevel:13
 }}
 />
 
+{/* PICKUP */}
+
 {pickup && (
 <MapLibreGL.PointAnnotation
 id="pickup"
@@ -273,6 +231,8 @@ coordinate={[pickup.longitude,pickup.latitude]}
 <View style={styles.pickupMarker}/>
 </MapLibreGL.PointAnnotation>
 )}
+
+{/* DESTINO */}
 
 {destination && (
 <MapLibreGL.PointAnnotation
@@ -283,6 +243,8 @@ coordinate={[destination.longitude,destination.latitude]}
 </MapLibreGL.PointAnnotation>
 )}
 
+{/* RUTA */}
+
 {route && (
 <MapLibreGL.ShapeSource id="routeSource" shape={route}>
 <MapLibreGL.LineLayer
@@ -292,24 +254,18 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 </MapLibreGL.ShapeSource>
 )}
 
-</MapLibreGL.MapView>
+{/* CONDUCTOR */}
 
-{mapSelectMode && (
-<View style={styles.centerPin}>
-<Text style={{fontSize:40}}>📍</Text>
-</View>
-)}
-
-{mapSelectMode && (
-<TouchableOpacity
-style={styles.confirmBtn}
-onPress={confirmLocation}
+{driverLocation && (
+<MapLibreGL.PointAnnotation
+id="driver"
+coordinate={[driverLocation.longitude,driverLocation.latitude]}
 >
-<Text style={{color:"#fff"}}>
-Confirmar ubicación
-</Text>
-</TouchableOpacity>
+<Text style={{fontSize:28}}>🚗</Text>
+</MapLibreGL.PointAnnotation>
 )}
+
+</MapLibreGL.MapView>
 
 <TouchableOpacity
 style={styles.gpsBtn}
@@ -323,12 +279,8 @@ pickupText={pickupText}
 destText={destText}
 results={results}
 distance={distance}
-onPickupFocus={()=>setSelecting("pickup")}
-onDestFocus={()=>setSelecting("destination")}
 onSearch={searchAddress}
 onSelectResult={selectPlace}
-onConfirmPin={()=>setMapSelectMode(true)}
-onCancel={resetTrip}
 />
 
 </View>
@@ -357,31 +309,13 @@ borderWidth:3,
 borderColor:"#fff"
 },
 
-centerPin:{
-position:"absolute",
-top:"50%",
-left:"50%",
-marginLeft:-20,
-marginTop:-40
-},
-
-confirmBtn:{
-position:"absolute",
-top:"45%",
-alignSelf:"center",
-backgroundColor:"#FF6A00",
-padding:14,
-borderRadius:10
-},
-
 gpsBtn:{
 position:"absolute",
 bottom:200,
 right:20,
 backgroundColor:"#fff",
 padding:12,
-borderRadius:30,
-elevation:5
+borderRadius:30
 }
 
 })
