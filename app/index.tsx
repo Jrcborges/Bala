@@ -29,14 +29,19 @@ const [distance,setDistance]=useState(0)
 
 const [driverLocation,setDriverLocation]=useState(null)
 
+const [mapCenter,setMapCenter]=useState(null)
+const [mapSelectMode,setMapSelectMode]=useState(false)
+
 const [results,setResults]=useState([])
 
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
-const tripId=847392 // aquí luego pondrás el viaje real
+const [selecting,setSelecting]=useState("destination")
 
-/* ---------------- GPS CLIENTE ---------------- */
+const tripId=1
+
+/* GPS CLIENTE */
 
 useEffect(()=>{
 
@@ -70,7 +75,7 @@ return()=>sub?.remove()
 
 },[])
 
-/* ---------------- SUPABASE REALTIME ---------------- */
+/* SUPABASE REALTIME */
 
 useEffect(()=>{
 
@@ -97,19 +102,19 @@ longitude:data.driver_lng
 )
 .subscribe()
 
-return()=>{
-supabase.removeChannel(channel)
-}
+return()=>supabase.removeChannel(channel)
 
 },[])
 
-/* ---------------- BUSCADOR NOMINATIM ---------------- */
+/* BUSCADOR DIRECCIONES */
 
 const searchAddress=async(text,type)=>{
 
 if(type==="pickup"){
+setSelecting("pickup")
 setPickupText(text)
 }else{
+setSelecting("destination")
 setDestText(text)
 }
 
@@ -141,14 +146,21 @@ setResults(list)
 
 }
 
-/* ---------------- SELECCIONAR RESULTADO ---------------- */
+/* SELECCIONAR RESULTADO */
 
 const selectPlace=async(place)=>{
 
 const coords=place.coords
 
+if(selecting==="pickup"){
+setPickup(coords)
+setPickupText(place.name)
+}
+
+if(selecting==="destination"){
 setDestination(coords)
 setDestText(place.name)
+await drawRoute(coords)
 
 cameraRef.current?.setCamera({
 centerCoordinate:[coords.longitude,coords.latitude],
@@ -156,13 +168,13 @@ zoomLevel:16,
 animationDuration:800
 })
 
-await drawRoute(coords)
+}
 
 setResults([])
 
 }
 
-/* ---------------- RUTA ---------------- */
+/* DIBUJAR RUTA */
 
 const drawRoute=async(dest)=>{
 
@@ -173,6 +185,8 @@ const url=`https://router.project-osrm.org/route/v1/driving/${pickup.longitude},
 const res=await fetch(url)
 
 const data=await res.json()
+
+if(!data.routes?.length) return
 
 const routeGeoJSON={
 type:"Feature",
@@ -187,7 +201,34 @@ setDistance(Number(km.toFixed(2)))
 
 }
 
-/* ---------------- GPS BOTON ---------------- */
+/* CONFIRMAR UBICACION MAPA */
+
+const confirmLocation=async()=>{
+
+if(!mapCenter) return
+
+if(selecting==="pickup"){
+setPickup(mapCenter)
+setPickupText("Ubicación seleccionada")
+}
+
+if(selecting==="destination"){
+setDestination(mapCenter)
+setDestText("Ubicación seleccionada")
+await drawRoute(mapCenter)
+
+cameraRef.current?.setCamera({
+centerCoordinate:[mapCenter.longitude,mapCenter.latitude],
+zoomLevel:16
+})
+
+}
+
+setMapSelectMode(false)
+
+}
+
+/* BOTON GPS */
 
 const goToMyLocation=()=>{
 
@@ -200,7 +241,7 @@ zoomLevel:15
 
 }
 
-/* ---------------- UI ---------------- */
+/* UI */
 
 return(
 
@@ -211,6 +252,10 @@ style={{flex:1}}
 logoEnabled={false}
 attributionEnabled={false}
 mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+onRegionDidChange={(e)=>{
+const center=e.geometry.coordinates
+setMapCenter({longitude:center[0],latitude:center[1]})
+}}
 >
 
 <MapLibreGL.Camera
@@ -221,8 +266,6 @@ zoomLevel:13
 }}
 />
 
-{/* PICKUP */}
-
 {pickup && (
 <MapLibreGL.PointAnnotation
 id="pickup"
@@ -231,8 +274,6 @@ coordinate={[pickup.longitude,pickup.latitude]}
 <View style={styles.pickupMarker}/>
 </MapLibreGL.PointAnnotation>
 )}
-
-{/* DESTINO */}
 
 {destination && (
 <MapLibreGL.PointAnnotation
@@ -243,7 +284,14 @@ coordinate={[destination.longitude,destination.latitude]}
 </MapLibreGL.PointAnnotation>
 )}
 
-{/* RUTA */}
+{driverLocation && (
+<MapLibreGL.PointAnnotation
+id="driver"
+coordinate={[driverLocation.longitude,driverLocation.latitude]}
+>
+<Text style={{fontSize:28}}>🚗</Text>
+</MapLibreGL.PointAnnotation>
+)}
 
 {route && (
 <MapLibreGL.ShapeSource id="routeSource" shape={route}>
@@ -254,18 +302,22 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 </MapLibreGL.ShapeSource>
 )}
 
-{/* CONDUCTOR */}
+</MapLibreGL.MapView>
 
-{driverLocation && (
-<MapLibreGL.PointAnnotation
-id="driver"
-coordinate={[driverLocation.longitude,driverLocation.latitude]}
->
-<Text style={{fontSize:28}}>🚗</Text>
-</MapLibreGL.PointAnnotation>
+{mapSelectMode && (
+<View style={styles.centerPin}>
+<Text style={{fontSize:40}}>📍</Text>
+</View>
 )}
 
-</MapLibreGL.MapView>
+{mapSelectMode && (
+<TouchableOpacity
+style={styles.confirmBtn}
+onPress={confirmLocation}
+>
+<Text style={{color:"#fff"}}>Confirmar ubicación</Text>
+</TouchableOpacity>
+)}
 
 <TouchableOpacity
 style={styles.gpsBtn}
@@ -281,6 +333,7 @@ results={results}
 distance={distance}
 onSearch={searchAddress}
 onSelectResult={selectPlace}
+onConfirmPin={()=>setMapSelectMode(true)}
 />
 
 </View>
@@ -307,6 +360,23 @@ borderRadius:10,
 backgroundColor:"#FF3B30",
 borderWidth:3,
 borderColor:"#fff"
+},
+
+centerPin:{
+position:"absolute",
+top:"50%",
+left:"50%",
+marginLeft:-20,
+marginTop:-40
+},
+
+confirmBtn:{
+position:"absolute",
+top:"45%",
+alignSelf:"center",
+backgroundColor:"#FF6A00",
+padding:14,
+borderRadius:10
 },
 
 gpsBtn:{
