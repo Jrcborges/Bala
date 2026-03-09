@@ -47,9 +47,6 @@
     },
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "de957d29-a7a8-43ae-804b-de1c29b79cf0"
-      }
     },
     "owner": "escarabajo_enano"
   }
