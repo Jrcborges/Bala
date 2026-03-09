@@ -1,6 +1,6 @@
-import React from "react"
+import React, { useMemo } from "react"
 import {
-    FlatList,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -8,123 +8,113 @@ import {
     View
 } from "react-native"
 
-type Props = {
+import BottomSheet from "@gorhom/bottom-sheet"
 
-pickupText:string
-destText:string
-
-results:any[]
-
-onPickupFocus:()=>void
-onDestFocus:()=>void
-
-onSearch:(text:string)=>void
-
-onSelectResult:(place:any)=>void
-
-onCancel:()=>void
-
+type Coords={
+latitude:number
+longitude:number
 }
 
-export default function RidePanel({
+type Place={
+name:string
+coords:Coords
+}
 
-pickupText,
-destText,
+type Props={
+pickupText:string
+destText:string
+results:Place[]
+distance:number
+duration:number
+price:number
+onSearch:(text:string,type:string)=>void
+onSelectResult:(place:Place)=>void
+onConfirmPin:()=>void
+}
 
-results,
+export default function RidePanel(props:Props){
 
-onPickupFocus,
-onDestFocus,
-
-onSearch,
-
-onSelectResult,
-
-onCancel
-
-}:Props){
+const snapPoints=useMemo(()=>["15%","50%"],[])
 
 return(
 
-<View style={styles.container}>
-
-<View style={styles.card}>
-
-<View style={styles.header}>
-
-<Text style={styles.label}>
-Origen
-</Text>
-
-<TouchableOpacity
-onPress={onCancel}
+<BottomSheet
+index={0}
+snapPoints={snapPoints}
+backgroundStyle={{backgroundColor:"#121212"}}
+handleIndicatorStyle={{backgroundColor:"#555"}}
 >
-<Text style={styles.close}>
-✕
-</Text>
-</TouchableOpacity>
 
-</View>
+<View style={styles.content}>
 
 <TextInput
-placeholder="Tu ubicación"
-placeholderTextColor="#aaa"
-value={pickupText}
-onFocus={onPickupFocus}
-onChangeText={onSearch}
+placeholder="¿Dónde te recogemos?"
+placeholderTextColor="#888"
+value={props.pickupText}
+onChangeText={(text)=>props.onSearch(text,"pickup")}
 style={styles.input}
 />
 
 <TextInput
 placeholder="¿A dónde vas?"
-placeholderTextColor="#aaa"
-value={destText}
-onFocus={onDestFocus}
-onChangeText={onSearch}
+placeholderTextColor="#888"
+value={props.destText}
+onChangeText={(text)=>props.onSearch(text,"destination")}
 style={styles.input}
 />
 
+<TouchableOpacity
+style={styles.mapButton}
+onPress={props.onConfirmPin}
+>
+<Text style={styles.mapButtonText}>
+📍 Elegir ubicación
+</Text>
+</TouchableOpacity>
+
+{props.distance>0 &&(
+
+<View style={styles.info}>
+
+<Text style={styles.infoText}>
+📏 {props.distance} km
+</Text>
+
+<Text style={styles.infoText}>
+⏱ {props.duration} min
+</Text>
+
+<Text style={styles.price}>
+💰 ${props.price}
+</Text>
+
 </View>
 
-{results.length>0 && (
+)}
 
-<View style={styles.resultsBox}>
+<ScrollView style={{maxHeight:200}}>
 
-<FlatList
-
-data={results}
-
-keyExtractor={(item)=>
-item.place_id.toString()
-}
-
-renderItem={({item})=>(
+{props.results.map((item,i)=>(
 
 <TouchableOpacity
-
+key={i}
 style={styles.result}
-
-onPress={()=>
-onSelectResult(item)
-}
-
+onPress={()=>props.onSelectResult(item)}
 >
 
 <Text style={styles.resultText}>
-{item.display_name}
+📍 {item.name}
 </Text>
 
 </TouchableOpacity>
 
-)}
+))}
 
-/>
-
-</View>
-
-)}
+</ScrollView>
 
 </View>
+
+</BottomSheet>
 
 )
 
@@ -132,74 +122,54 @@ onSelectResult(item)
 
 const styles=StyleSheet.create({
 
-container:{
-
-position:"absolute",
-top:60,
-width:"90%",
-alignSelf:"center"
-
-},
-
-card:{
-
-backgroundColor:"#1C1C1E",
-borderRadius:20,
-padding:15
-
-},
-
-header:{
-
-flexDirection:"row",
-justifyContent:"space-between",
-alignItems:"center"
-
-},
-
-label:{
-
-color:"#aaa",
-fontSize:14
-
-},
-
-close:{
-
-color:"#fff",
-fontSize:20
-
+content:{
+padding:20
 },
 
 input:{
-
+backgroundColor:"#1E1E1E",
 color:"#fff",
-fontSize:18,
-marginTop:10
-
+padding:12,
+borderRadius:10,
+marginBottom:10
 },
 
-resultsBox:{
+mapButton:{
+backgroundColor:"#FF6A00",
+padding:14,
+borderRadius:12,
+alignItems:"center",
+marginBottom:10
+},
 
-backgroundColor:"#1C1C1E",
-marginTop:10,
-borderRadius:15,
-maxHeight:250
+mapButtonText:{
+color:"#fff",
+fontWeight:"bold"
+},
 
+info:{
+flexDirection:"row",
+justifyContent:"space-between",
+marginBottom:10
+},
+
+infoText:{
+color:"#fff"
+},
+
+price:{
+color:"#00E676",
+fontWeight:"bold"
 },
 
 result:{
-
-padding:15,
+padding:12,
 borderBottomWidth:1,
 borderBottomColor:"#333"
-
 },
 
 resultText:{
-
 color:"#fff"
-
 }
 
 })
