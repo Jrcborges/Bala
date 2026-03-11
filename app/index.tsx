@@ -48,7 +48,7 @@ const pedirViaje = async (vehicleType:string) => {
   .from("rides")
   .insert([
   {
-    client_id: "cliente_id_temporal",
+    client_id: user.data.user?.id,
 
     origin_lat: pickup.latitude,
     origin_lng: pickup.longitude,
