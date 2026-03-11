@@ -1,73 +1,146 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import React, { useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import MapLibreGL from "@maplibre/maplibre-react-native"
-import * as Location from "expo-location"
+import { supabase } from "../lib/supabase";
 
-import { createClient } from "@supabase/supabase-js"
+import MapLibreGL from "@maplibre/maplibre-react-native";
+import * as Location from "expo-location";
 
-import RidePanel from "../components/RidePanel"
+import RidePanel from "../components/RidePanel";
 
-const supabase=createClient(
-"https://TU_PROYECTO.supabase.co",
-"TU_PUBLIC_ANON_KEY"
-)
-
-type Coords={
-latitude:number
-longitude:number
+type Coords = {
+    latitude:number
+    longitude:number
+}
+type RouteGeoJSON = {
+    type:string
+    geometry:any
 }
 
-type Place={
-name:string
-coords:Coords
-}
+MapLibreGL.setAccessToken(null)
 
 export default function Index(){
 
 const cameraRef=useRef<any>(null)
 
-const [userLocation,setUserLocation]=useState<Coords | null>(null)
-const [pickup,setPickup]=useState<Coords | null>(null)
-const [destination,setDestination]=useState<Coords | null>(null)
-
-const [driverLocation,setDriverLocation]=useState<Coords | null>(null)
-
+const [userLocation,setUserLocation]=useState<Coords|null>(null)
+const [pickup,setPickup]=useState<Coords|null>(null)
+const [destination,setDestination]=useState<Coords|null>(null)
 const [route,setRoute]=useState<any>(null)
-
 const [distance,setDistance]=useState(0)
-const [duration,setDuration]=useState(0)
-const [price,setPrice]=useState(0)
 
-const [mapCenter,setMapCenter]=useState<Coords | null>(null)
+const [mapCenter,setMapCenter]=useState<Coords|null>(null)
 const [mapSelectMode,setMapSelectMode]=useState(false)
 
-const [results,setResults]=useState<Place[]>([])
+const [selecting,setSelecting]=useState("destination")
+
+const [results,setResults]=useState<any[]>([])
 
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
-const [selecting,setSelecting]=useState<"pickup"|"destination">("destination")
+/*Supabase*/
+const pedirViaje = async () => {
+  if (!pickup || !destination) return;
 
-const tripId=1
+  const { data, error } = await supabase.from("paseos").insert([
+    {
+      // Aquí los datos de la tabla paseos
+      id_del_cliente: "cliente_id_temporal", // luego reemplaza por usuario autenticado
+      latitud_de_origen: pickup.latitude,
+      origen_lng: pickup.longitude,
+      latitud_de_destino: destination.latitude,
+      destino_lng: destination.longitude,
+      tipo_de_vehiculo: "moto", // puedes usar transport desde RidePanel
+      precio: distance * 0.35, // calcula según tu transporte
+      estado: "buscando",
+      latitud_del_conductor: null,
+      controlador_lng: null,
+    },
+  ]);
 
-/* GPS */
+  if (error) console.log("Error al crear viaje", error);
+  else console.log("Viaje creado", data);
+};
+  
+/* ------------------ DETECTAR INTERSECCIÓN ------------------ */
+
+function parseIntersection(text:string){
+
+if(!text) return null
+
+text=text.toLowerCase()
+
+text=text
+.replace("esquina","")
+.replace("entre","")
+.replace(" y ",",")
+.replace(/\s+/g," ")
+.trim()
+
+let parts=text.split(",")
+
+if(parts.length>=2){
+
+return{
+street1:parts[0].trim(),
+street2:parts[1].trim()
+}
+
+}
+
+return null
+}
+
+/* ------------------ BUSCAR INTERSECCIÓN ------------------ */
+
+async function searchIntersection(street1:string,street2:string){
+
+try{
+
+const query=`${street1} ${street2} Santiago de Cuba`
+
+const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`
+
+const res=await fetch(url)
+
+const data=await res.json()
+
+if(data.features && data.features.length>0){
+
+const coords=data.features[0].geometry.coordinates
+
+return{
+lat:coords[1],
+lng:coords[0]
+}
+
+}
+
+return null
+
+}catch{
+
+return null
+
+}
+
+}
+
+/* ------------------ GPS ------------------ */
 
 useEffect(()=>{
 
-let sub:any
+let sub:Location.LocationSubscription|undefined
 
-const start=async()=>{
+;(async()=>{
 
 const {status}=await Location.requestForegroundPermissionsAsync()
 
 if(status!=="granted") return
 
 sub=await Location.watchPositionAsync(
-{
-accuracy:Location.Accuracy.High,
-distanceInterval:5
-},
+{accuracy:Location.Accuracy.High,distanceInterval:5},
 (loc)=>{
 
 const coords={
@@ -77,126 +150,142 @@ longitude:loc.coords.longitude
 
 setUserLocation(coords)
 
-if(!pickup){
-
-setPickup(coords)
-
-cameraRef.current?.setCamera({
-centerCoordinate:[coords.longitude,coords.latitude],
-zoomLevel:15
-})
-
-}
+if(!pickup) setPickup(coords)
 
 }
 )
 
-}
-
-start()
+})()
 
 return()=>sub?.remove()
 
 },[])
 
-/* DRIVER REALTIME */
+/* ------------------ BUSCADOR ------------------ */
 
-useEffect(()=>{
+const searchAddress=async(text:string)=>{
 
-const channel=supabase
-.channel("driver-location")
-.on(
-"postgres_changes",
-{
-event:"UPDATE",
-schema:"public",
-table:"trips",
-filter:`id=eq.${tripId}`
-},
-(payload)=>{
+if(selecting==="pickup") setPickupText(text)
+else setDestText(text)
 
-const data=payload.new
-
-if(!data?.driver_lat) return
-
-setDriverLocation({
-latitude:data.driver_lat,
-longitude:data.driver_lng
-})
-
-}
-)
-.subscribe()
-
-return()=>{supabase.removeChannel(channel)}
-
-},[])
-
-/* SEARCH ADDRESS */
-
-const searchAddress=useCallback(async(text:string,type:string)=>{
-
-if(type==="pickup"){
-setSelecting("pickup")
-setPickupText(text)
-}else{
-setSelecting("destination")
-setDestText(text)
-}
-
-if(text.length<3){
-setResults([])
-return
-}
+if(text.length<3){setResults([]);return}
 
 try{
 
-const query=text+", Santiago de Cuba, Cuba"
+/* detectar intersección */
 
-const url=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+const intersection=parseIntersection(text)
+
+if(intersection){
+
+const coords=await searchIntersection(
+intersection.street1,
+intersection.street2
+)
+
+if(coords){
+
+setResults([])
+
+const location={
+latitude:coords.lat,
+longitude:coords.lng
+}
+
+if(selecting==="pickup") setPickup(location)
+
+if(selecting==="destination"){
+setDestination(location)
+await drawRoute(location)
+}
+
+cameraRef.current?.setCamera({
+centerCoordinate:[coords.lng,coords.lat],
+zoomLevel:16,
+animationDuration:800
+})
+
+return
+
+}
+
+}
+
+/* limpiar búsqueda */
+
+let query=text
+.toLowerCase()
+.replace(/entre/g," ")
+.replace(/ y /g," ")
+.replace(/esquina/g," ")
+.replace(/,/g," ")
+.replace(/\s+/g," ")
+.trim()
+
+query=query+" Santiago de Cuba"
+
+/* photon */
+
+const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
 
 const res=await fetch(url)
 
 const data=await res.json()
 
-const list:Place[]=data.map((p:any)=>({
+const filtered=data.features.filter(
+(f:any)=>f.properties.street||f.properties.name
+)
 
-name:p.display_name,
+if(filtered.length===0){
 
-coords:{
-latitude:parseFloat(p.lat),
-longitude:parseFloat(p.lon)
+setResults([
+{
+properties:{name:"Dirección no encontrada"},
+geometry:{coordinates:[0,0]},
+error:true
+}
+])
+
+return
+
 }
 
-}))
+setResults(filtered)
 
-setResults(list)
+}catch{
 
-}catch(e){
-
-console.log("Search error",e)
+setResults([])
 
 }
 
-},[])
+}
 
-/* SELECT PLACE */
+/* ------------------ SELECCIONAR RESULTADO ------------------ */
 
-const selectPlace=useCallback(async(place:Place)=>{
+const selectPlace=async(place:any)=>{
 
-const coords=place.coords
+if(place.error) return
+
+const coords={
+latitude:place.geometry.coordinates[1],
+longitude:place.geometry.coordinates[0]
+}
+
+const name=
+place.properties.street||
+place.properties.name||
+"Ubicación"
 
 if(selecting==="pickup"){
 setPickup(coords)
-setPickupText(place.name)
+setPickupText(name)
 }
 
 if(selecting==="destination"){
-
 setDestination(coords)
-setDestText(place.name)
-
+setDestText(name)
 await drawRoute(coords)
+}
 
 cameraRef.current?.setCamera({
 centerCoordinate:[coords.longitude,coords.latitude],
@@ -204,17 +293,15 @@ zoomLevel:16,
 animationDuration:800
 })
 
-}
-
 setResults([])
 
-},[selecting,pickup])
+}
 
-/* ROUTE */
+/* ------------------ RUTA ------------------ */
 
 const drawRoute=async(dest:Coords)=>{
 
-if(!pickup) return
+if(!pickup||!dest) return
 
 try{
 
@@ -226,37 +313,51 @@ const data=await res.json()
 
 if(!data.routes?.length) return
 
-const r=data.routes[0]
-
 const routeGeoJSON={
 type:"Feature",
-geometry:r.geometry
+geometry:data.routes[0].geometry,
+properties:{}
 }
 
 setRoute(routeGeoJSON)
 
-const km=r.distance/1000
+const km=data.routes[0].distance/1000
 
 setDistance(Number(km.toFixed(2)))
 
-setDuration(Math.round(r.duration/60))
-
-const base=1
-const pricePerKm=0.8
-
-const cost=base+(km*pricePerKm)
-
-setPrice(Number(cost.toFixed(2)))
-
-}catch(e){
-
-console.log("Route error",e)
+}catch{}
 
 }
 
+/* ------------------ CONFIRMAR PIN ------------------ */
+
+const confirmLocation=async()=>{
+
+if(!mapCenter) return
+
+if(selecting==="pickup"){
+setPickup(mapCenter)
+setPickupText("Ubicación seleccionada")
 }
 
-/* GPS BUTTON */
+if(selecting==="destination"){
+setDestination(mapCenter)
+setDestText("Ubicación seleccionada")
+await drawRoute(mapCenter)
+}
+
+setMapSelectMode(false)
+
+}
+
+const resetTrip=()=>{
+setDestination(null)
+setRoute(null)
+setDestText("")
+setResults([])
+}
+
+/* ------------------ GPS BOTON ------------------ */
 
 const goToMyLocation=()=>{
 
@@ -270,6 +371,8 @@ animationDuration:800
 
 }
 
+/* ------------------ UI ------------------ */
+
 return(
 
 <View style={{flex:1}}>
@@ -279,21 +382,18 @@ style={{flex:1}}
 logoEnabled={false}
 attributionEnabled={false}
 mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-onRegionDidChange={(e:any)=>{
-
-const c=e.geometry.coordinates
-
-setMapCenter({
-longitude:c[0],
-latitude:c[1]
-})
-
+onRegionDidChange={(e)=>{
+const center=e.geometry.coordinates
+setMapCenter({longitude:center[0],latitude:center[1]})
 }}
 >
 
 <MapLibreGL.Camera
 ref={cameraRef}
-zoomLevel={14}
+defaultSettings={{
+centerCoordinate:[-75.8219,20.0247],
+zoomLevel:13
+}}
 />
 
 {pickup && (
@@ -301,7 +401,7 @@ zoomLevel={14}
 id="pickup"
 coordinate={[pickup.longitude,pickup.latitude]}
 >
-<View style={styles.pickup}/>
+<View style={styles.pickupMarker}/>
 </MapLibreGL.PointAnnotation>
 )}
 
@@ -310,16 +410,7 @@ coordinate={[pickup.longitude,pickup.latitude]}
 id="dest"
 coordinate={[destination.longitude,destination.latitude]}
 >
-<View style={styles.dest}/>
-</MapLibreGL.PointAnnotation>
-)}
-
-{driverLocation && (
-<MapLibreGL.PointAnnotation
-id="driver"
-coordinate={[driverLocation.longitude,driverLocation.latitude]}
->
-<Text style={{fontSize:28}}>🚗</Text>
+<View style={styles.destMarker}/>
 </MapLibreGL.PointAnnotation>
 )}
 
@@ -327,18 +418,32 @@ coordinate={[driverLocation.longitude,driverLocation.latitude]}
 <MapLibreGL.ShapeSource id="routeSource" shape={route}>
 <MapLibreGL.LineLayer
 id="routeLine"
-style={{
-lineColor:"#FF6A00",
-lineWidth:6
-}}
+style={{lineColor:"#FF6A00",lineWidth:6}}
 />
 </MapLibreGL.ShapeSource>
 )}
 
 </MapLibreGL.MapView>
 
+{mapSelectMode && (
+<View style={styles.centerPin}>
+<Text style={{fontSize:40}}>📍</Text>
+</View>
+)}
+
+{mapSelectMode && (
 <TouchableOpacity
-style={styles.gps}
+style={styles.confirmBtn}
+onPress={confirmLocation}
+>
+<Text style={{color:"#fff"}}>
+Confirmar ubicación
+</Text>
+</TouchableOpacity>
+)}
+
+<TouchableOpacity
+style={styles.gpsBtn}
 onPress={goToMyLocation}
 >
 <Text style={{fontSize:22}}>📍</Text>
@@ -349,11 +454,13 @@ pickupText={pickupText}
 destText={destText}
 results={results}
 distance={distance}
-duration={duration}
-price={price}
+onPickupFocus={()=>setSelecting("pickup")}
+onDestFocus={()=>setSelecting("destination")}
 onSearch={searchAddress}
 onSelectResult={selectPlace}
 onConfirmPin={()=>setMapSelectMode(true)}
+onCancel={resetTrip}
+onRequestRide={pedirViaje}
 />
 
 </View>
@@ -364,7 +471,7 @@ onConfirmPin={()=>setMapSelectMode(true)}
 
 const styles=StyleSheet.create({
 
-pickup:{
+pickupMarker:{
 width:20,
 height:20,
 borderRadius:10,
@@ -373,7 +480,7 @@ borderWidth:3,
 borderColor:"#fff"
 },
 
-dest:{
+destMarker:{
 width:20,
 height:20,
 borderRadius:10,
@@ -382,13 +489,31 @@ borderWidth:3,
 borderColor:"#fff"
 },
 
-gps:{
+centerPin:{
 position:"absolute",
-bottom:220,
+top:"50%",
+left:"50%",
+marginLeft:-20,
+marginTop:-40
+},
+
+confirmBtn:{
+position:"absolute",
+top:"45%",
+alignSelf:"center",
+backgroundColor:"#FF6A00",
+padding:14,
+borderRadius:10
+},
+
+gpsBtn:{
+position:"absolute",
+bottom:200,
 right:20,
 backgroundColor:"#fff",
 padding:12,
-borderRadius:30
+borderRadius:30,
+elevation:5
 }
 
 })
