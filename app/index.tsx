@@ -40,28 +40,40 @@ const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
 /*Supabase*/
-const pedirViaje = async () => {
+const pedirViaje = async (vehicleType:string) => {
+
   if (!pickup || !destination) return;
 
-  const { data, error } = await supabase.from("paseos").insert([
-    {
-      // Aquí los datos de la tabla paseos
-      id_del_cliente: "cliente_id_temporal", // luego reemplaza por usuario autenticado
-      latitud_de_origen: pickup.latitude,
-      origen_lng: pickup.longitude,
-      latitud_de_destino: destination.latitude,
-      destino_lng: destination.longitude,
-      tipo_de_vehiculo: "moto", // puedes usar transport desde RidePanel
-      precio: distance * 0.35, // calcula según tu transporte
-      estado: "buscando",
-      latitud_del_conductor: null,
-      controlador_lng: null,
-    },
-  ]);
+  const { data, error } = await supabase
+  .from("rides")
+  .insert([
+  {
+    client_id: "cliente_id_temporal",
 
-  if (error) console.log("Error al crear viaje", error);
-  else console.log("Viaje creado", data);
-};
+    origin_lat: pickup.latitude,
+    origin_lng: pickup.longitude,
+
+    dest_lat: destination.latitude,
+    dest_lng: destination.longitude,
+
+    vehicle_type: vehicleType,
+
+    price: distance * 0.35,
+
+    status: "searching",
+
+    driver_lat: null,
+    driver_lng: null
+  }
+  ])
+
+  if (error){
+    console.log("❌ Error al crear viaje", error)
+  } 
+  else{
+    console.log("✅ Viaje creado", data)
+  }
+}
   
 /* ------------------ DETECTAR INTERSECCIÓN ------------------ */
 
