@@ -44,10 +44,11 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
-      
-    }
-    
-    
+      "router": {},
+      "eas": {
+        "projectId": "4f34a520-7526-4cdd-904d-74c6acaf8583"
+      }
+    },
+    "owner": "broo_que"
   }
 }
