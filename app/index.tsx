@@ -40,37 +40,42 @@ const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 
 /*Supabase*/
-const pedirViaje = async (vehicleType:string) => {
+const pedirViaje = async (vehicleType: string) => {
 
-  if (!pickup || !destination) return;
+  const { data: userData } = await supabase.auth.getUser()
+  const user = userData.user
+
+  if (!pickup || !destination || !user) {
+    console.log("❌ Falta pickup, destination o usuario")
+    return
+  }
 
   const { data, error } = await supabase
-  .from("rides")
-  .insert([
-  {
-    client_id: user.data.user?.id,
+    .from("rides")
+    .insert([
+      {
+        client_id: user.id,
 
-    origin_lat: pickup.latitude,
-    origin_lng: pickup.longitude,
+        origin_lat: pickup.latitude,
+        origin_lng: pickup.longitude,
 
-    dest_lat: destination.latitude,
-    dest_lng: destination.longitude,
+        dest_lat: destination.latitude,
+        dest_lng: destination.longitude,
 
-    vehicle_type: vehicleType,
+        vehicle_type: vehicleType,
 
-    price: distance * 0.35,
+        price: distance * 0.35,
 
-    status: "searching",
+        status: "searching",
 
-    driver_lat: null,
-    driver_lng: null
-  }
-  ])
+        driver_lat: null,
+        driver_lng: null
+      }
+    ])
 
-  if (error){
+  if (error) {
     console.log("❌ Error al crear viaje", error)
-  } 
-  else{
+  } else {
     console.log("✅ Viaje creado", data)
   }
 }
