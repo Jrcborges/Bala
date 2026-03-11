@@ -116,7 +116,7 @@ export default function RidePanel({
         </View>
         {/*Pedir viaje*/}
         {distance > 0 && (
-         <TouchableOpacity style={styles.requestBtn} onPress={onRequestRide}>
+         <TouchableOpacity style={styles.requestBtn} onPress={() => onRequestRide(transport)}>
            <Text style={styles.actionText}>🚀 Pedir viaje</Text>
          </TouchableOpacity>
         )}
@@ -126,7 +126,7 @@ export default function RidePanel({
           <View style={styles.results}>
             {results.map((item: any, i: number) => (
               <TouchableOpacity key={i} style={styles.result} onPress={() => onSelectResult(item)}>
-                <Text style={styles.resultText}>{item.properties.name || "Dirección"}</Text>
+                  <Text style={styles.resultText}>{item.properties.name || "Dirección"}</Text>
               </TouchableOpacity>
             ))}
           </View>
