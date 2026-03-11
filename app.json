@@ -44,12 +44,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "c0f9cba2-e4c0-4c6b-a19e-c825a618ef45"
-      }
-    },
-    "owner": "q_paso_bro"
+      "router": {}
+      
+    }
+    
     
   }
 }
