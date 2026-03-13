@@ -53,6 +53,7 @@ style={styles.logo}
 
 <TextInput
 placeholder="Número de teléfono"
+placeholderTextColor="#999"
 style={styles.input}
 keyboardType="phone-pad"
 value={phone}
@@ -61,6 +62,7 @@ onChangeText={setPhone}
 
 <TextInput
 placeholder="Contraseña"
+placeholderTextColor="#999"
 style={styles.input}
 secureTextEntry
 value={password}
