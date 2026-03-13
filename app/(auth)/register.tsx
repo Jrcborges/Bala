@@ -1,124 +1,219 @@
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from "react-native"
 
-export default function RegisterScreen() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+export default function RegisterScreen(){
 
-  const handleRegister = async () => {
-    if (!email || !password) {
-      return Alert.alert("Error", "Por favor llena todos los campos")
-    }
+const [name,setName] = useState("")
+const [phone,setPhone] = useState("")
+const [code,setCode] = useState("")
+const [step,setStep] = useState(1)
+const [loading,setLoading] = useState(false)
+const [cooldown,setCooldown] = useState(false)
 
-    if (password !== confirmPassword) {
-      return Alert.alert("Error", "Las contraseñas no coinciden")
-    }
+const normalizePhone = (num)=>{
+return "+53" + num.replace(/\D/g,"")
+}
 
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-    setLoading(false)
+const sendCode = async ()=>{
 
-    if (error) {
-      Alert.alert("Error", error.message)
-    } else {
-      Alert.alert(
-        "Cuenta creada",
-        "Revisa tu correo para confirmar tu cuenta antes de iniciar sesión."
-      )
-      router.push("/(auth)/login")
-    }
-  }
+if(!name || !phone){
+return Alert.alert("Completa todos los campos")
+}
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Crear cuenta</Text>
+if(cooldown){
+return Alert.alert("Espera 60 segundos para pedir otro código")
+}
 
-      <TextInput
-        placeholder="Correo electrónico"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-      />
+const normalizedPhone = normalizePhone(phone)
 
-      <TextInput
-        placeholder="Contraseña"
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+const { data:existing } = await supabase
+.from("profiles")
+.select("phone")
+.eq("phone",normalizedPhone)
+.maybeSingle()
 
-      <TextInput
-        placeholder="Confirmar contraseña"
-        style={styles.input}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
+if(existing){
+return Alert.alert("Este número ya tiene una cuenta")
+}
 
-      <TouchableOpacity
-        style={[styles.button, loading && { opacity: 0.5 }]}
-        onPress={handleRegister}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Creando cuenta..." : "Registrarse"}
-        </Text>
-      </TouchableOpacity>
+setLoading(true)
 
-      <TouchableOpacity
-        style={{ marginTop: 20 }}
-        onPress={() => router.push("/(auth)/login")}
-      >
-        <Text style={styles.link}>¿Ya tienes cuenta? Inicia sesión</Text>
-      </TouchableOpacity>
-    </View>
-  )
+const { error } = await supabase.auth.signInWithOtp({
+phone: normalizedPhone
+})
+
+setLoading(false)
+
+if(error){
+Alert.alert("Error",error.message)
+}else{
+
+setCooldown(true)
+
+setTimeout(()=>{
+setCooldown(false)
+},60000)
+
+setStep(2)
+
+}
+
+}
+
+const verifyCode = async ()=>{
+
+if(!code){
+return Alert.alert("Ingresa el código")
+}
+
+const normalizedPhone = normalizePhone(phone)
+
+setLoading(true)
+
+const { data,error } = await supabase.auth.verifyOtp({
+phone: normalizedPhone,
+token: code,
+type:"sms"
+})
+
+if(error){
+setLoading(false)
+return Alert.alert("Error",error.message)
+}
+
+await supabase.from("profiles").insert({
+id:data.user.id,
+name:name,
+phone:normalizedPhone
+})
+
+setLoading(false)
+
+Alert.alert("Cuenta creada")
+
+}
+
+return(
+
+<View style={styles.container}>
+
+<Image
+source={require("../../assets/bala.png")}
+style={styles.logo}
+/>
+
+<Text style={styles.title}>Crear cuenta</Text>
+
+{step === 1 && (
+
+<>
+
+<TextInput
+placeholder="Nombre"
+style={styles.input}
+value={name}
+onChangeText={setName}
+/>
+
+<TextInput
+placeholder="Número de teléfono"
+style={styles.input}
+keyboardType="phone-pad"
+value={phone}
+onChangeText={setPhone}
+/>
+
+<TouchableOpacity
+style={styles.button}
+onPress={sendCode}
+disabled={loading}
+>
+<Text style={styles.buttonText}>
+{loading ? "Enviando..." : "Enviar código"}
+</Text>
+</TouchableOpacity>
+
+</>
+
+)}
+
+{step === 2 && (
+
+<>
+
+<TextInput
+placeholder="Código SMS"
+style={styles.input}
+keyboardType="number-pad"
+value={code}
+onChangeText={setCode}
+/>
+
+<TouchableOpacity
+style={styles.button}
+onPress={verifyCode}
+disabled={loading}
+>
+<Text style={styles.buttonText}>
+{loading ? "Verificando..." : "Confirmar"}
+</Text>
+</TouchableOpacity>
+
+</>
+
+)}
+
+</View>
+
+)
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#fff",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 40,
-  },
-  input: {
-    width: "100%",
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: "#000",
-    padding: 15,
-    borderRadius: 10,
-    width: "100%",
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  link: {
-    color: "#007AFF",
-    fontWeight: "bold",
-  },
+
+container:{
+flex:1,
+justifyContent:"center",
+alignItems:"center",
+padding:20,
+backgroundColor:"#fff"
+},
+
+logo:{
+width:220,
+height:90,
+resizeMode:"contain",
+marginBottom:40
+},
+
+title:{
+fontSize:26,
+fontWeight:"bold",
+marginBottom:30
+},
+
+input:{
+width:"100%",
+padding:15,
+borderWidth:1,
+borderColor:"#ddd",
+borderRadius:12,
+marginBottom:20,
+fontSize:16
+},
+
+button:{
+backgroundColor:"#ff6a00",
+padding:16,
+borderRadius:12,
+width:"100%"
+},
+
+buttonText:{
+color:"#fff",
+fontWeight:"bold",
+textAlign:"center",
+fontSize:16
+}
+
 })
