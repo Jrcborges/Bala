@@ -1,69 +1,35 @@
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "expo-router"
 import { useState } from "react"
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from "react-native"
 
 export default function LoginScreen() {
 
 const [phone,setPhone] = useState("")
-const [code,setCode] = useState("")
-const [step,setStep] = useState(1)
+const [password,setPassword] = useState("")
 const [loading,setLoading] = useState(false)
-const [cooldown,setCooldown] = useState(false)
+
+const router = useRouter()
 
 const normalizePhone = (num)=>{
 return "+53" + num.replace(/\D/g,"")
 }
 
-const sendCode = async ()=>{
+const handleLogin = async ()=>{
 
-if(!phone){
-return Alert.alert("Error","Ingresa tu número")
-}
-
-if(cooldown){
-return Alert.alert("Espera 60 segundos para pedir otro código")
+if(!phone || !password){
+return Alert.alert("Error","Completa todos los campos")
 }
 
 const normalizedPhone = normalizePhone(phone)
 
-setLoading(true)
-
-const { error } = await supabase.auth.signInWithOtp({
-phone: normalizedPhone
-})
-
-setLoading(false)
-
-if(error){
-Alert.alert("Error",error.message)
-}else{
-
-setCooldown(true)
-
-setTimeout(()=>{
-setCooldown(false)
-},60000)
-
-setStep(2)
-
-}
-
-}
-
-const verifyCode = async ()=>{
-
-if(!code){
-return Alert.alert("Ingresa el código")
-}
-
-const normalizedPhone = normalizePhone(phone)
+const email = normalizedPhone + "@bala.app"
 
 setLoading(true)
 
-const { error } = await supabase.auth.verifyOtp({
-phone: normalizedPhone,
-token: code,
-type: "sms"
+const { error } = await supabase.auth.signInWithPassword({
+email,
+password
 })
 
 setLoading(false)
@@ -85,10 +51,6 @@ style={styles.logo}
 
 <Text style={styles.title}>Entrar</Text>
 
-{step === 1 && (
-
-<>
-
 <TextInput
 placeholder="Número de teléfono"
 style={styles.input}
@@ -97,45 +59,32 @@ value={phone}
 onChangeText={setPhone}
 />
 
-<TouchableOpacity
-style={styles.button}
-onPress={sendCode}
-disabled={loading}
->
-<Text style={styles.buttonText}>
-{loading ? "Enviando..." : "Enviar código"}
-</Text>
-</TouchableOpacity>
-
-</>
-
-)}
-
-{step === 2 && (
-
-<>
-
 <TextInput
-placeholder="Código SMS"
+placeholder="Contraseña"
 style={styles.input}
-keyboardType="number-pad"
-value={code}
-onChangeText={setCode}
+secureTextEntry
+value={password}
+onChangeText={setPassword}
 />
 
 <TouchableOpacity
 style={styles.button}
-onPress={verifyCode}
+onPress={handleLogin}
 disabled={loading}
 >
 <Text style={styles.buttonText}>
-{loading ? "Verificando..." : "Verificar"}
+{loading ? "Entrando..." : "Entrar"}
 </Text>
 </TouchableOpacity>
 
-</>
-
-)}
+<TouchableOpacity
+style={{marginTop:20}}
+onPress={()=>router.push("/(auth)/register")}
+>
+<Text style={styles.link}>
+Crear cuenta
+</Text>
+</TouchableOpacity>
 
 </View>
 
@@ -187,6 +136,11 @@ color:"#fff",
 fontWeight:"bold",
 textAlign:"center",
 fontSize:16
+},
+
+link:{
+color:"#ff6a00",
+fontWeight:"bold"
 }
 
 })
