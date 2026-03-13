@@ -67,7 +67,7 @@ return(
 <View style={styles.container}>
 
 <Image
-source={require("../../assets/imágenes/bala.png")}
+source={require("../../assets/images/bala.png")}
 style={styles.logo}
 />
 
