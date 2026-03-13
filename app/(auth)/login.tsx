@@ -1,102 +1,192 @@
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from "react-native"
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
-  const handleLogin = async () => {
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    setLoading(false)
+const [phone,setPhone] = useState("")
+const [code,setCode] = useState("")
+const [step,setStep] = useState(1)
+const [loading,setLoading] = useState(false)
+const [cooldown,setCooldown] = useState(false)
 
-    if (error) Alert.alert("Error", error.message)
-    // Si inicia bien, RootNavigator detectará la sesión y redirigirá a "/"
-  }
+const normalizePhone = (num)=>{
+return "+53" + num.replace(/\D/g,"")
+}
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Iniciar sesión</Text>
+const sendCode = async ()=>{
 
-      <TextInput
-        placeholder="Correo electrónico"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-      />
+if(!phone){
+return Alert.alert("Error","Ingresa tu número")
+}
 
-      <TextInput
-        placeholder="Contraseña"
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+if(cooldown){
+return Alert.alert("Espera 60 segundos para pedir otro código")
+}
 
-      <TouchableOpacity
-        style={[styles.button, loading && { opacity: 0.5 }]}
-        onPress={handleLogin}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Ingresando..." : "Entrar"}
-        </Text>
-      </TouchableOpacity>
+const normalizedPhone = normalizePhone(phone)
 
-      <TouchableOpacity
-        style={{ marginTop: 20 }}
-        onPress={() => router.push("/(auth)/register")}
-      >
-        <Text style={styles.link}>
-          ¿No tienes cuenta? Regístrate aquí
-        </Text>
-      </TouchableOpacity>
-    </View>
-  )
+setLoading(true)
+
+const { error } = await supabase.auth.signInWithOtp({
+phone: normalizedPhone
+})
+
+setLoading(false)
+
+if(error){
+Alert.alert("Error",error.message)
+}else{
+
+setCooldown(true)
+
+setTimeout(()=>{
+setCooldown(false)
+},60000)
+
+setStep(2)
+
+}
+
+}
+
+const verifyCode = async ()=>{
+
+if(!code){
+return Alert.alert("Ingresa el código")
+}
+
+const normalizedPhone = normalizePhone(phone)
+
+setLoading(true)
+
+const { error } = await supabase.auth.verifyOtp({
+phone: normalizedPhone,
+token: code,
+type: "sms"
+})
+
+setLoading(false)
+
+if(error){
+Alert.alert("Error",error.message)
+}
+
+}
+
+return(
+
+<View style={styles.container}>
+
+<Image
+source={require("../../assets/bala.png")}
+style={styles.logo}
+/>
+
+<Text style={styles.title}>Entrar</Text>
+
+{step === 1 && (
+
+<>
+
+<TextInput
+placeholder="Número de teléfono"
+style={styles.input}
+keyboardType="phone-pad"
+value={phone}
+onChangeText={setPhone}
+/>
+
+<TouchableOpacity
+style={styles.button}
+onPress={sendCode}
+disabled={loading}
+>
+<Text style={styles.buttonText}>
+{loading ? "Enviando..." : "Enviar código"}
+</Text>
+</TouchableOpacity>
+
+</>
+
+)}
+
+{step === 2 && (
+
+<>
+
+<TextInput
+placeholder="Código SMS"
+style={styles.input}
+keyboardType="number-pad"
+value={code}
+onChangeText={setCode}
+/>
+
+<TouchableOpacity
+style={styles.button}
+onPress={verifyCode}
+disabled={loading}
+>
+<Text style={styles.buttonText}>
+{loading ? "Verificando..." : "Verificar"}
+</Text>
+</TouchableOpacity>
+
+</>
+
+)}
+
+</View>
+
+)
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#fff",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 40,
-  },
-  input: {
-    width: "100%",
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: "#000",
-    padding: 15,
-    borderRadius: 10,
-    width: "100%",
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  link: {
-    color: "#007AFF",
-    fontWeight: "bold",
-  },
+
+container:{
+flex:1,
+justifyContent:"center",
+alignItems:"center",
+padding:20,
+backgroundColor:"#fff"
+},
+
+logo:{
+width:220,
+height:90,
+resizeMode:"contain",
+marginBottom:40
+},
+
+title:{
+fontSize:26,
+fontWeight:"bold",
+marginBottom:30
+},
+
+input:{
+width:"100%",
+padding:15,
+borderWidth:1,
+borderColor:"#ddd",
+borderRadius:12,
+marginBottom:20,
+fontSize:16
+},
+
+button:{
+backgroundColor:"#ff6a00",
+padding:16,
+borderRadius:12,
+width:"100%"
+},
+
+buttonText:{
+color:"#fff",
+fontWeight:"bold",
+textAlign:"center",
+fontSize:16
+}
+
 })
