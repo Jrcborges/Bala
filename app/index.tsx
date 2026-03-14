@@ -480,15 +480,19 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 )}
 
 </MapLibreGL.MapView>
-{rideStatus && (
+{rideId && (
 <View style={styles.statusBox}>
 <Text style={styles.statusText}>
 
-{rideStatus === "searching" && "🔎 Buscando conductor"}
-{rideStatus === "accepted" && "✅ Conductor aceptó el viaje"}
-{rideStatus === "arriving" && "🚗 El conductor va en camino"}
-{rideStatus === "in_trip" && "🧭 Viaje en progreso"}
-{rideStatus === "completed" && "🏁 Viaje terminado"}
+{rideStatus === "accepted"
+? "✅ Conductor aceptó el viaje"
+: rideStatus === "arriving"
+? "🚗 El conductor va en camino"
+: rideStatus === "in_trip"
+? "🧭 Viaje en progreso"
+: rideStatus === "completed"
+? "🏁 Viaje terminado"
+: "🔎 Buscando conductor"}
 
 </Text>
 </View>
