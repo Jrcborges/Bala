@@ -73,11 +73,16 @@ const pedirViaje = async (vehicleType: string) => {
         driver_lng: null
       }
     ])
+    .select()
+    .single()
 
   if (error) {
     console.log("❌ Error al crear viaje", error)
   } else {
     console.log("✅ Viaje creado", data)
+    console.log("ID del viaje:", data.id)
+    setRideId(data.id)
+    setRideStatus(data.status)
   }
 }
   
