@@ -28,7 +28,8 @@ const [pickup,setPickup]=useState<Coords|null>(null)
 const [destination,setDestination]=useState<Coords|null>(null)
 const [route,setRoute]=useState<any>(null)
 const [distance,setDistance]=useState(0)
-
+const [rideId,setRideId] = useState<string | null>(null)
+const [rideStatus,setRideStatus] = useState<string | null>(null)
 const [mapCenter,setMapCenter]=useState<Coords|null>(null)
 const [mapSelectMode,setMapSelectMode]=useState(false)
 
@@ -441,7 +442,19 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 )}
 
 </MapLibreGL.MapView>
+{rideStatus && (
+<View style={styles.statusBox}>
+<Text style={styles.statusText}>
 
+{rideStatus === "searching" && "🔎 Buscando conductor"}
+{rideStatus === "accepted" && "✅ Conductor aceptó el viaje"}
+{rideStatus === "arriving" && "🚗 El conductor va en camino"}
+{rideStatus === "in_trip" && "🧭 Viaje en progreso"}
+{rideStatus === "completed" && "🏁 Viaje terminado"}
+
+</Text>
+</View>
+)}
 {mapSelectMode && (
 <View style={styles.centerPin}>
 <Text style={{fontSize:40}}>📍</Text>
@@ -531,6 +544,20 @@ backgroundColor:"#fff",
 padding:12,
 borderRadius:30,
 elevation:5
+},
+statusBox:{
+position:"absolute",
+top:60,
+alignSelf:"center",
+backgroundColor:"#000",
+padding:15,
+borderRadius:12
+},
+
+statusText:{
+color:"#fff",
+fontSize:16,
+fontWeight:"600"
 }
 
 })
