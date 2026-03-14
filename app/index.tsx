@@ -178,7 +178,40 @@ if(!pickup) setPickup(coords)
 return()=>sub?.remove()
 
 },[])
+/*-------------------Escuchar estados del viaje-----*/
+useEffect(()=>{
 
+if(!rideId) return
+
+const channel = supabase
+.channel("ride-status")
+.on(
+"postgres_changes",
+{
+event:"UPDATE",
+schema:"public",
+table:"rides",
+filter:`id=eq.${rideId}`
+},
+(payload)=>{
+
+const ride = payload.new
+
+console.log("🚗 Estado actualizado:", ride.status)
+
+setRideStatus(ride.status)
+
+}
+)
+.subscribe()
+
+return ()=>{
+
+supabase.removeChannel(channel)
+
+}
+
+},[rideId])
 /* ------------------ BUSCADOR ------------------ */
 
 const searchAddress=async(text:string)=>{
