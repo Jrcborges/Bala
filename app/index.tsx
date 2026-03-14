@@ -521,6 +521,7 @@ onPress={goToMyLocation}
 <Text style={{fontSize:22}}>📍</Text>
 </TouchableOpacity>
 
+{!rideId && (
 <RidePanel
 pickupText={pickupText}
 destText={destText}
@@ -534,6 +535,7 @@ onConfirmPin={()=>setMapSelectMode(true)}
 onCancel={resetTrip}
 onRequestRide={pedirViaje}
 />
+)}
 
 </View>
 
@@ -593,7 +595,8 @@ top:60,
 alignSelf:"center",
 backgroundColor:"#000",
 padding:15,
-borderRadius:12
+borderRadius:12,
+zIndex:999
 },
 
 statusText:{
