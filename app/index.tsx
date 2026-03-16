@@ -189,7 +189,7 @@ useEffect(()=>{
 if(!rideId) return
 
 const channel = supabase
-.channel("ride-status")
+.channel("ride-status-"+rideId)
 .on(
 "postgres_changes",
 {
@@ -202,9 +202,16 @@ filter:`id=eq.${rideId}`
 
 const ride = payload.new
 
-console.log("🚗 Estado actualizado:", ride.status)
-
 setRideStatus(ride.status)
+
+if(ride.driver_lat && ride.driver_lng){
+
+setDriverLocation({
+latitude:ride.driver_lat,
+longitude:ride.driver_lng
+})
+
+}
 
 }
 )
@@ -217,6 +224,7 @@ supabase.removeChannel(channel)
 }
 
 },[rideId])
+
 /* ------------------ BUSCADOR ------------------ */
 
 const searchAddress=async(text:string)=>{
@@ -462,6 +470,7 @@ coordinate={[pickup.longitude,pickup.latitude]}
 )}
 
 {destination && (
+    
 <MapLibreGL.PointAnnotation
 id="dest"
 coordinate={[destination.longitude,destination.latitude]}
@@ -469,7 +478,21 @@ coordinate={[destination.longitude,destination.latitude]}
 <View style={styles.destMarker}/>
 </MapLibreGL.PointAnnotation>
 )}
-
+{driverLocation && (
+<MapLibreGL.PointAnnotation
+id="driver"
+coordinate={[driverLocation.longitude,driverLocation.latitude]}
+>
+<View style={{
+width:20,
+height:20,
+borderRadius:10,
+backgroundColor:"#007AFF",
+borderWidth:3,
+borderColor:"#fff"
+}}/>
+</MapLibreGL.PointAnnotation>
+)}
 {route && (
 <MapLibreGL.ShapeSource id="routeSource" shape={route}>
 <MapLibreGL.LineLayer
@@ -484,7 +507,9 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 <View style={styles.statusBox}>
 <Text style={styles.statusText}>
 
-{rideStatus === "accepted"
+{rideStatus === "searching"
+? "🔎 Buscando conductor"
+: rideStatus === "accepted"
 ? "✅ Conductor aceptó el viaje"
 : rideStatus === "arriving"
 ? "🚗 El conductor va en camino"
