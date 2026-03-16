@@ -30,6 +30,7 @@ const [route,setRoute]=useState<any>(null)
 const [distance,setDistance]=useState(0)
 const [rideId,setRideId] = useState<string | null>(null)
 const [rideStatus,setRideStatus] = useState<string | null>(null)
+const [driverLocation,setDriverLocation] = useState<Coords | null>(null)
 const [mapCenter,setMapCenter]=useState<Coords|null>(null)
 const [mapSelectMode,setMapSelectMode]=useState(false)
 
