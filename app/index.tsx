@@ -226,7 +226,7 @@ table:"rides",
 filter:`id=eq.${rideId}`
 },
 (payload)=>{
-
+console.log("Realtime payload recibido:", payload)
 const ride = payload.new
 
 setRideStatus(ride.status)
@@ -242,7 +242,7 @@ longitude:ride.driver_lng
 
 }
 )
-.subscribe()
+.subscribe((status)=>console.log("Estado del canal:",status))
 
 return ()=>{
 
