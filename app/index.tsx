@@ -184,6 +184,32 @@ if(!pickup) setPickup(coords)
 return()=>sub?.remove()
 
 },[])
+/* ------------------ CARGAR ESTADO DEL VIAJE ------------------ */
+
+const cargarEstadoViaje = async () => {
+
+const { data } = await supabase
+.from("rides")
+.select("status,driver_lat,driver_lng")
+.eq("id", rideId)
+.single()
+
+if(data){
+
+setRideStatus(data.status)
+
+if(data.driver_lat && data.driver_lng){
+
+setDriverLocation({
+latitude:data.driver_lat,
+longitude:data.driver_lng
+})
+
+}
+
+}
+
+}
 /*-------------------Escuchar estados del viaje-----*/
 useEffect(()=>{
 
@@ -442,32 +468,7 @@ animationDuration:800
 })
 
 }
-/* ------------------ CARGAR ESTADO DEL VIAJE ------------------ */
 
-const cargarEstadoViaje = async () => {
-
-const { data } = await supabase
-.from("rides")
-.select("status,driver_lat,driver_lng")
-.eq("id", rideId)
-.single()
-
-if(data){
-
-setRideStatus(data.status)
-
-if(data.driver_lat && data.driver_lng){
-
-setDriverLocation({
-latitude:data.driver_lat,
-longitude:data.driver_lng
-})
-
-}
-
-}
-
-}
 /* ------------------ UI ------------------ */
 
 return(
