@@ -41,6 +41,9 @@ const [results,setResults]=useState<any[]>([])
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
 const [menuVisible,setMenuVisible] = useState(false)
+const [showDriverRegister,setShowDriverRegister] = useState(false)
+const [driverMode,setDriverMode] = useState(false)
+const [driverRegistered,setDriverRegistered] = useState(false)
 
 /*Supabase*/
 const pedirViaje = async (vehicleType: string) => {
@@ -263,6 +266,31 @@ const interval = setInterval(() => {
 return () => clearInterval(interval);
 
 },[rideId])
+/*----------Ver si el chófer está registrado---------*/
+useEffect(()=>{
+
+async function checkDriver(){
+
+const { data } = await supabase.auth.getUser()
+const user = data.user
+
+if(!user) return
+
+const { data:driver } = await supabase
+.from("drivers")
+.select("*")
+.eq("id",user.id)
+.single()
+
+if(driver){
+setDriverRegistered(true)
+}
+
+}
+
+checkDriver()
+
+},[])
 /* ------------------ BUSCADOR ------------------ */
 
 const searchAddress=async(text:string)=>{
@@ -614,10 +642,24 @@ visible={menuVisible}
 onClose={()=>setMenuVisible(false)}
 onDriverPress={()=>{
 setMenuVisible(false)
+
+if(driverRegistered){
+setDriverMode(true)
+}else{
 setShowDriverRegister(true)
+}
+
 }}
 />
-
+{showDriverRegister && (
+<DriverRegister
+onComplete={()=>{
+setShowDriverRegister(false)
+setDriverRegistered(true)
+setDriverMode(true)
+}}
+/>
+)}
 )
 
 }
