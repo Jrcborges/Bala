@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-
+import SideMenu from "../components/SideMenu"
 import { supabase } from "../lib/supabase";
 
 import MapLibreGL from "@maplibre/maplibre-react-native";
@@ -40,6 +40,7 @@ const [results,setResults]=useState<any[]>([])
 
 const [pickupText,setPickupText]=useState("")
 const [destText,setDestText]=useState("")
+const [menuVisible,setMenuVisible] = useState(false)
 
 /*Supabase*/
 const pedirViaje = async (vehicleType: string) => {
@@ -540,6 +541,13 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 )}
 
 </MapLibreGL.MapView>
+<TouchableOpacity
+style={styles.menuBtn}
+onPress={()=>setMenuVisible(true)}
+>
+<Text style={{fontSize:24}}>☰</Text>
+</TouchableOpacity>
+
 {rideId && (
 <View style={styles.statusBox}>
 <Text style={styles.statusText}>
@@ -600,6 +608,15 @@ onRequestRide={pedirViaje}
 )}
 
 </View>
+
+<SideMenu
+visible={menuVisible}
+onClose={()=>setMenuVisible(false)}
+onDriverPress={()=>{
+setMenuVisible(false)
+setShowDriverRegister(true)
+}}
+/>
 
 )
 
@@ -665,6 +682,15 @@ statusText:{
 color:"#fff",
 fontSize:16,
 fontWeight:"600"
+},
+menuBtn:{
+position:"absolute",
+top:60,
+left:20,
+backgroundColor:"#fff",
+padding:10,
+borderRadius:10,
+zIndex:999
 }
 
 })
