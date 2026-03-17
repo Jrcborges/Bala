@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import SideMenu from "../components/SideMenu"
 import { supabase } from "../lib/supabase";
-
+import DriverRegister from "../components/DriverRegister"
 import MapLibreGL from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
 
@@ -569,6 +569,20 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 )}
 
 </MapLibreGL.MapView>
+{driverMode && (
+<View style={{
+position:"absolute",
+top:120,
+alignSelf:"center",
+backgroundColor:"#007AFF",
+padding:12,
+borderRadius:10
+}}>
+<Text style={{color:"#fff",fontWeight:"600"}}>
+🚗 MODO CONDUCTOR ACTIVO
+</Text>
+</View>
+)}
 <TouchableOpacity
 style={styles.menuBtn}
 onPress={()=>setMenuVisible(true)}
