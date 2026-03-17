@@ -223,6 +223,7 @@ const channel = supabase
 event:"UPDATE",
 schema:"public",
 table:"rides",
+filter:`id=eq.${rideId}`
 },
 (payload)=>{
 console.log("Realtime payload recibido:", payload)
