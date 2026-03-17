@@ -256,7 +256,10 @@ useEffect(()=>{
 
 if(!rideId) return
 
-cargarEstadoViaje()
+const interval = setInterval(() => {
+    cargarEstadoViaje();
+  }, 3000);
+return () => clearInterval(interval);
 
 },[rideId])
 /* ------------------ BUSCADOR ------------------ */
