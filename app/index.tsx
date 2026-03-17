@@ -504,7 +504,7 @@ animationDuration:800
 /* ------------------ UI ------------------ */
 
 return(
-
+<>
 <View style={{flex:1}}>
 
 <MapLibreGL.MapView
@@ -660,6 +660,7 @@ setDriverMode(true)
 }}
 />
 )}
+</>
 )
 
 }
