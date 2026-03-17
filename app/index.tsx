@@ -291,6 +291,100 @@ setDriverRegistered(true)
 checkDriver()
 
 },[])
+/*Conductor envía información */
+useEffect(()=>{
+
+if(!driverMode || !rideId) return
+
+let sub: Location.LocationSubscription
+
+;(async()=>{
+
+const { status } = await Location.requestForegroundPermissionsAsync()
+if(status !== "granted") return
+
+sub = await Location.watchPositionAsync(
+{
+accuracy: Location.Accuracy.High,
+distanceInterval: 5
+},
+async(loc)=>{
+
+const lat = loc.coords.latitude
+const lng = loc.coords.longitude
+
+await supabase
+.from("rides")
+.update({
+driver_lat: lat,
+driver_lng: lng
+})
+.eq("id", rideId)
+
+}
+)
+
+})()
+
+return ()=> sub?.remove()
+
+},[driverMode, rideId])
+/*--------Eschucha del chofer----------*/
+const [availableRides,setAvailableRides] = useState<any[]>([])
+
+useEffect(()=>{
+
+if(!driverMode) return
+
+const channel = supabase
+.channel("drivers-search")
+.on(
+"postgres_changes",
+{
+event:"INSERT",
+schema:"public",
+table:"rides",
+filter:`status=eq.searching`
+},
+(payload)=>{
+
+const ride = payload.new
+
+setAvailableRides(prev=>[ride,...prev])
+
+}
+)
+.subscribe()
+
+return ()=> supabase.removeChannel(channel)
+
+},[driverMode])
+/*funcion aceptar viaje*/
+const acceptRide = async (ride:any)=>{
+
+const { data:userData } = await supabase.auth.getUser()
+const user = userData.user
+
+if(!user) return
+
+const { error } = await supabase
+.from("rides")
+.update({
+status:"accepted",
+driver_id:user.id
+})
+.eq("id",ride.id)
+
+if(error){
+console.log("❌ Error aceptando viaje", error)
+}else{
+console.log("✅ Viaje aceptado")
+
+setAvailableRides([]) // limpiar lista
+setRideId(ride.id)   // activar tracking
+}
+
+}
 /* ------------------ BUSCADOR ------------------ */
 
 const searchAddress=async(text:string)=>{
@@ -569,6 +663,50 @@ style={{lineColor:"#FF6A00",lineWidth:6}}
 )}
 
 </MapLibreGL.MapView>
+{driverMode && availableRides.length > 0 && (
+
+<View style={{
+position:"absolute",
+bottom:120,
+alignSelf:"center",
+backgroundColor:"#fff",
+padding:15,
+borderRadius:12,
+width:"90%",
+elevation:5
+}}>
+
+<Text style={{fontWeight:"700",marginBottom:5}}>
+🚗 Nuevo viaje disponible
+</Text>
+
+<Text>
+📍 Origen: {availableRides[0].origin_lat.toFixed(4)}, {availableRides[0].origin_lng.toFixed(4)}
+</Text>
+
+<Text>
+🏁 Destino: {availableRides[0].dest_lat.toFixed(4)}, {availableRides[0].dest_lng.toFixed(4)}
+</Text>
+
+<TouchableOpacity
+style={{
+marginTop:10,
+backgroundColor:"#007AFF",
+padding:10,
+borderRadius:8
+}}
+onPress={()=>acceptRide(availableRides[0])}
+>
+
+<Text style={{color:"#fff",textAlign:"center"}}>
+Aceptar viaje
+</Text>
+
+</TouchableOpacity>
+
+</View>
+
+)}
 {driverMode && (
 <View style={{
 position:"absolute",
