@@ -261,7 +261,7 @@ const interval = setInterval(() => {
   }, 3000);
 return () => clearInterval(interval);
 
-},[rideId])
+},[rideId]);
 /*----------Ver si el chófer está registrado---------*/
 useEffect(()=>{
 
