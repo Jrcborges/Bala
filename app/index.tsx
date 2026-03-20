@@ -1,3 +1,4 @@
+import DriverScreen from "../components/DriverScreen"
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import SideMenu from "../components/SideMenu"
