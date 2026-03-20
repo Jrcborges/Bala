@@ -250,7 +250,7 @@ if(ride.driver_lat != null && ride.driver_lng != null){
 
 return ()=> supabase.removeChannel(channel)
 
-},[rideId];
+},[rideId]);
     
 useEffect(()=>{
 
