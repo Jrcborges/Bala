@@ -221,7 +221,7 @@ useEffect(()=>{
 if(!rideId) return
 
 const channel = supabase
-.channel("ride-status-"+rideId)
+.channel("ride-live-"+rideId)
 .on(
 "postgres_changes",
 {
@@ -231,31 +231,26 @@ table:"rides",
 filter:`id=eq.${rideId}`
 },
 (payload)=>{
-console.log("Realtime payload recibido:", payload)
+
 const ride = payload.new
 
 setRideStatus(ride.status)
 
-if(ride.driver_lat && ride.driver_lng){
-
-setDriverLocation({
-latitude:ride.driver_lat,
-longitude:ride.driver_lng
-})
-
+// 🔥 TRACKING EN VIVO DEL CONDUCTOR
+if(ride.driver_lat != null && ride.driver_lng != null){
+  setDriverLocation({
+    latitude: ride.driver_lat,
+    longitude: ride.driver_lng
+  })
 }
 
 }
 )
-.subscribe((status)=>console.log("Estado del canal:",status))
+.subscribe()
 
-return ()=>{
+return ()=> supabase.removeChannel(channel)
 
-supabase.removeChannel(channel)
-
-}
-
-},[rideId])
+},[rideId]
     
 useEffect(()=>{
 
@@ -295,8 +290,30 @@ checkDriver()
 /*Conductor envía información */
 useEffect(()=>{
 
-if(!driverMode || !rideId) return
+if(!driverMode) return
+sub = await Location.watchPositionAsync(
+{
+accuracy: Location.Accuracy.High,
+distanceInterval: 5
+},
+async(loc)=>{
 
+const lat = loc.coords.latitude
+const lng = loc.coords.longitude
+
+// 🔥 solo si hay viaje activo
+if(rideId){
+await supabase
+.from("rides")
+.update({
+driver_lat: lat,
+driver_lng: lng
+})
+.eq("id", rideId)
+}
+
+}
+)
 let sub: Location.LocationSubscription
 
 ;(async()=>{
