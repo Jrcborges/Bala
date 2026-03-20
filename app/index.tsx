@@ -352,7 +352,7 @@ setAvailableRides(prev=>[ride,...prev])
 
 return ()=> supabase.removeChannel(channel)
 
-},[driverMode])
+},[driverMode]);
 /*funcion aceptar viaje*/
 const acceptRide = async (ride:any)=>{
 
