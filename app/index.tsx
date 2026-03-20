@@ -597,226 +597,179 @@ animationDuration:800
 
 /* ------------------ UI ------------------ */
 
-return(
-<>
-<View style={{flex:1}}>
+// 🔥 SEPARACIÓN TOTAL DE MODOS
 
-<MapLibreGL.MapView
-style={{flex:1}}
-logoEnabled={false}
-attributionEnabled={false}
-mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-onRegionDidChange={(e)=>{
-const center=e.geometry.coordinates
-setMapCenter({longitude:center[0],latitude:center[1]})
-}}
->
-
-<MapLibreGL.Camera
-ref={cameraRef}
-defaultSettings={{
-centerCoordinate:[-75.8219,20.0247],
-zoomLevel:13
-}}
-/>
-
-{pickup && (
-<MapLibreGL.PointAnnotation
-id="pickup"
-coordinate={[pickup.longitude,pickup.latitude]}
->
-<View style={styles.pickupMarker}/>
-</MapLibreGL.PointAnnotation>
-)}
-
-{destination && (
-    
-<MapLibreGL.PointAnnotation
-id="dest"
-coordinate={[destination.longitude,destination.latitude]}
->
-<View style={styles.destMarker}/>
-</MapLibreGL.PointAnnotation>
-)}
-{driverLocation && (
-<MapLibreGL.PointAnnotation
-id="driver"
-coordinate={[driverLocation.longitude,driverLocation.latitude]}
->
-<View style={{
-width:20,
-height:20,
-borderRadius:10,
-backgroundColor:"#007AFF",
-borderWidth:3,
-borderColor:"#fff"
-}}/>
-</MapLibreGL.PointAnnotation>
-)}
-{route && (
-<MapLibreGL.ShapeSource id="routeSource" shape={route}>
-<MapLibreGL.LineLayer
-id="routeLine"
-style={{lineColor:"#FF6A00",lineWidth:6}}
-/>
-</MapLibreGL.ShapeSource>
-)}
-
-</MapLibreGL.MapView>
-{driverMode && availableRides.length > 0 && (
-
-<View style={{
-position:"absolute",
-bottom:120,
-alignSelf:"center",
-backgroundColor:"#fff",
-padding:15,
-borderRadius:12,
-width:"90%",
-elevation:5
-}}>
-
-<Text style={{fontWeight:"700",marginBottom:5}}>
-🚗 Nuevo viaje disponible
-</Text>
-
-<Text>
-📍 Origen: {availableRides[0].origin_lat.toFixed(4)}, {availableRides[0].origin_lng.toFixed(4)}
-</Text>
-
-<Text>
-🏁 Destino: {availableRides[0].dest_lat.toFixed(4)}, {availableRides[0].dest_lng.toFixed(4)}
-</Text>
-
-<TouchableOpacity
-style={{
-marginTop:10,
-backgroundColor:"#007AFF",
-padding:10,
-borderRadius:8
-}}
-onPress={()=>acceptRide(availableRides[0])}
->
-
-<Text style={{color:"#fff",textAlign:"center"}}>
-Aceptar viaje
-</Text>
-
-</TouchableOpacity>
-
-</View>
-
-)}
-{driverMode && (
-<View style={{
-position:"absolute",
-top:120,
-alignSelf:"center",
-backgroundColor:"#007AFF",
-padding:12,
-borderRadius:10
-}}>
-<Text style={{color:"#fff",fontWeight:"600"}}>
-🚗 MODO CONDUCTOR ACTIVO
-</Text>
-</View>
-)}
-<TouchableOpacity
-style={styles.menuBtn}
-onPress={()=>setMenuVisible(true)}
->
-<Text style={{fontSize:24}}>☰</Text>
-</TouchableOpacity>
-
-{rideId && (
-<View style={styles.statusBox}>
-<Text style={styles.statusText}>
-
-{rideStatus === "searching"
-? "🔎 Buscando conductor"
-: rideStatus === "accepted"
-? "✅ Conductor aceptó el viaje"
-: rideStatus === "arriving"
-? "🚗 El conductor va en camino"
-: rideStatus === "in_trip"
-? "🧭 Viaje en progreso"
-: rideStatus === "completed"
-? "🏁 Viaje terminado"
-: "🔎 Buscando conductor"}
-
-</Text>
-</View>
-)}
-{mapSelectMode && (
-<View style={styles.centerPin}>
-<Text style={{fontSize:40}}>📍</Text>
-</View>
-)}
-
-{mapSelectMode && (
-<TouchableOpacity
-style={styles.confirmBtn}
-onPress={confirmLocation}
->
-<Text style={{color:"#fff"}}>
-Confirmar ubicación
-</Text>
-</TouchableOpacity>
-)}
-
-<TouchableOpacity
-style={styles.gpsBtn}
-onPress={goToMyLocation}
->
-<Text style={{fontSize:22}}>📍</Text>
-</TouchableOpacity>
-
-{!rideId && (
-<RidePanel
-pickupText={pickupText}
-destText={destText}
-results={results}
-distance={distance}
-onPickupFocus={()=>setSelecting("pickup")}
-onDestFocus={()=>setSelecting("destination")}
-onSearch={searchAddress}
-onSelectResult={selectPlace}
-onConfirmPin={()=>setMapSelectMode(true)}
-onCancel={resetTrip}
-onRequestRide={pedirViaje}
-/>
-)}
-
-</View>
-
-<SideMenu
-visible={menuVisible}
-onClose={()=>setMenuVisible(false)}
-onDriverPress={()=>{
-setMenuVisible(false)
-
-if(driverRegistered){
-setDriverMode(true)
-}else{
-setShowDriverRegister(true)
+if (driverMode) {
+  return (
+    <DriverScreen
+      rideId={rideId}
+      rideStatus={rideStatus}
+      driverLocation={driverLocation}
+      availableRides={availableRides}
+      onAcceptRide={acceptRide}
+    />
+  )
 }
 
-}}
-/>
-{showDriverRegister && (
-<DriverRegister
-onComplete={()=>{
-setShowDriverRegister(false)
-setDriverRegistered(true)
-setDriverMode(true)
-}}
-/>
-)}
-</>
+return (
+  <>
+    <View style={{ flex: 1 }}>
+
+      <MapLibreGL.MapView
+        style={{ flex: 1 }}
+        logoEnabled={false}
+        attributionEnabled={false}
+        mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+        onRegionDidChange={(e) => {
+          const center = e.geometry.coordinates
+          setMapCenter({
+            longitude: center[0],
+            latitude: center[1]
+          })
+        }}
+      >
+
+        <MapLibreGL.Camera
+          ref={cameraRef}
+          defaultSettings={{
+            centerCoordinate: [-75.8219, 20.0247],
+            zoomLevel: 13
+          }}
+        />
+
+        {/* 📍 PICKUP */}
+        {pickup && (
+          <MapLibreGL.PointAnnotation
+            id="pickup"
+            coordinate={[pickup.longitude, pickup.latitude]}
+          >
+            <View style={styles.pickupMarker} />
+          </MapLibreGL.PointAnnotation>
+        )}
+
+        {/* 🏁 DESTINO */}
+        {destination && (
+          <MapLibreGL.PointAnnotation
+            id="dest"
+            coordinate={[destination.longitude, destination.latitude]}
+          >
+            <View style={styles.destMarker} />
+          </MapLibreGL.PointAnnotation>
+        )}
+
+        {/* 🚗 CHOFER */}
+        {driverLocation && (
+          <MapLibreGL.PointAnnotation
+            id="driver"
+            coordinate={[driverLocation.longitude, driverLocation.latitude]}
+          >
+            <View style={styles.driverMarker} />
+          </MapLibreGL.PointAnnotation>
+        )}
+
+        {/* 🛣️ RUTA */}
+        {route && (
+          <MapLibreGL.ShapeSource id="routeSource" shape={route}>
+            <MapLibreGL.LineLayer
+              id="routeLine"
+              style={{ lineColor: "#FF6A00", lineWidth: 6 }}
+            />
+          </MapLibreGL.ShapeSource>
+        )}
+
+      </MapLibreGL.MapView>
+
+      {/* 📊 ESTADO */}
+      {rideId && (
+        <View style={styles.statusBox}>
+          <Text style={styles.statusText}>
+            {rideStatus === "searching" && "🔎 Buscando conductor"}
+            {rideStatus === "accepted" && "✅ Conductor aceptó"}
+            {rideStatus === "arriving" && "🚗 En camino"}
+            {rideStatus === "in_trip" && "🧭 En viaje"}
+            {rideStatus === "completed" && "🏁 Finalizado"}
+          </Text>
+        </View>
+      )}
+
+      {/* 📍 PIN */}
+      {mapSelectMode && (
+        <View style={styles.centerPin}>
+          <Text style={{ fontSize: 40 }}>📍</Text>
+        </View>
+      )}
+
+      {mapSelectMode && (
+        <TouchableOpacity
+          style={styles.confirmBtn}
+          onPress={confirmLocation}
+        >
+          <Text style={{ color: "#fff" }}>
+            Confirmar ubicación
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* 📡 GPS */}
+      <TouchableOpacity
+        style={styles.gpsBtn}
+        onPress={goToMyLocation}
+      >
+        <Text style={{ fontSize: 22 }}>📍</Text>
+      </TouchableOpacity>
+
+      {/* 🧾 PANEL PASAJERO */}
+      {!rideId && (
+        <RidePanel
+          pickupText={pickupText}
+          destText={destText}
+          results={results}
+          distance={distance}
+          onPickupFocus={() => setSelecting("pickup")}
+          onDestFocus={() => setSelecting("destination")}
+          onSearch={searchAddress}
+          onSelectResult={selectPlace}
+          onConfirmPin={() => setMapSelectMode(true)}
+          onCancel={resetTrip}
+          onRequestRide={pedirViaje}
+        />
+      )}
+
+      {/* ☰ MENU */}
+      <TouchableOpacity
+        style={styles.menuBtn}
+        onPress={() => setMenuVisible(true)}
+      >
+        <Text style={{ fontSize: 24 }}>☰</Text>
+      </TouchableOpacity>
+
+    </View>
+
+    <SideMenu
+      visible={menuVisible}
+      onClose={() => setMenuVisible(false)}
+      onDriverPress={() => {
+        setMenuVisible(false)
+
+        if (driverRegistered) {
+          setDriverMode(true)
+        } else {
+          setShowDriverRegister(true)
+        }
+      }}
+    />
+
+    {showDriverRegister && (
+      <DriverRegister
+        onComplete={() => {
+          setShowDriverRegister(false)
+          setDriverRegistered(true)
+          setDriverMode(true)
+        }}
+      />
+    )}
+  </>
 )
-
-}
-
 const styles=StyleSheet.create({
 
 pickupMarker:{
@@ -886,6 +839,14 @@ backgroundColor:"#fff",
 padding:10,
 borderRadius:10,
 zIndex:999
-}
+},
+driverMarker: {
+  width: 20,
+  height: 20,
+  borderRadius: 10,
+  backgroundColor: "#007AFF",
+  borderWidth: 3,
+  borderColor: "#fff"
+},
 
 })
