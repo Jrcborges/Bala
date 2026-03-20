@@ -203,7 +203,7 @@ if(data){
 
 setRideStatus(data.status)
 
-if(data.driver_lat && data.driver_lng){
+if(data.driver_lat != null && data.driver_lng != null){
 
 setDriverLocation({
 latitude:data.driver_lat,
