@@ -770,6 +770,8 @@ return (
       />
     )}
   </>
+ )
+}
 const styles=StyleSheet.create({
 
 pickupMarker:{
