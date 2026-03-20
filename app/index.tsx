@@ -288,65 +288,41 @@ checkDriver()
 
 },[])
 /*Conductor envía información */
-useEffect(()=>{
+useEffect(() => {
+  if (!driverMode) return;
 
-if(!driverMode) return
-sub = await Location.watchPositionAsync(
-{
-accuracy: Location.Accuracy.High,
-distanceInterval: 5
-},
-async(loc)=>{
+  let sub: Location.LocationSubscription;
 
-const lat = loc.coords.latitude
-const lng = loc.coords.longitude
+  (async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") return;
 
-// 🔥 solo si hay viaje activo
-if(rideId){
-await supabase
-.from("rides")
-.update({
-driver_lat: lat,
-driver_lng: lng
-})
-.eq("id", rideId)
-}
+    sub = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 5
+      },
+      async (loc) => {
+        const lat = loc.coords.latitude;
+        const lng = loc.coords.longitude;
 
-}
-)
-let sub: Location.LocationSubscription
+        // 🔥 solo si hay viaje activo
+        if (rideId) {
+          await supabase
+            .from("rides")
+            .update({
+              driver_lat: lat,
+              driver_lng: lng
+            })
+            .eq("id", rideId);
+        }
+      }
+    );
+  })();
 
-;(async()=>{
+  return () => sub?.remove();
 
-const { status } = await Location.requestForegroundPermissionsAsync()
-if(status !== "granted") return
-
-sub = await Location.watchPositionAsync(
-{
-accuracy: Location.Accuracy.High,
-distanceInterval: 5
-},
-async(loc)=>{
-
-const lat = loc.coords.latitude
-const lng = loc.coords.longitude
-
-await supabase
-.from("rides")
-.update({
-driver_lat: lat,
-driver_lng: lng
-})
-.eq("id", rideId)
-
-}
-)
-
-})()
-
-return ()=> sub?.remove()
-
-},[driverMode, rideId])
+}, [driverMode, rideId]);
 /*--------Eschucha del chofer----------*/
 const [availableRides,setAvailableRides] = useState<any[]>([])
 
