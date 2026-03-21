@@ -337,14 +337,21 @@ const channel = supabase
 {
 event:"INSERT",
 schema:"public",
-table:"rides",
-filter:`status=eq.searching`
+table:"rides"
 },
 (payload)=>{
 
 const ride = payload.new
 
-setAvailableRides(prev=>[ride,...prev])
+if(ride.status === "searching"){
+  setAvailableRides(prev=>{
+    const updated = [ride, ...prev]
+
+    console.log("RIDES DISPONIBLES:", updated)
+
+    return updated
+  })
+}
 
 }
 )
@@ -352,7 +359,7 @@ setAvailableRides(prev=>[ride,...prev])
 
 return ()=> supabase.removeChannel(channel)
 
-},[driverMode]);
+},[driverMode])
 /*funcion aceptar viaje*/
 const acceptRide = async (ride:any)=>{
 
