@@ -225,7 +225,7 @@ const ride = availableRides[0]
 {!rideId && ride && (
   <View style={styles.card}>
     <Text style={styles.title}>🚨 Nuevo viaje</Text>
-
+    <Text>{JSON.stringify(ride)}</Text>
     <Text>
       📍 Cliente: {ride.origin_lat?.toFixed?.(4) || "..."}, {ride.origin_lng?.toFixed?.(4) || "..."}
     </Text>
