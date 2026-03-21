@@ -167,7 +167,7 @@ export default function DriverScreen({
       },3000)
     }
   },[rideStatus])
-
+const ride = availableRides[0]
   return (
     <View style={{ flex: 1 }}>
 
@@ -222,29 +222,28 @@ export default function DriverScreen({
       </View>
 
       {/* CARD */}
-      {!rideId && availableRides.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.title}>🚨 Nuevo viaje</Text>
+{!rideId && ride && (
+  <View style={styles.card}>
+    <Text style={styles.title}>🚨 Nuevo viaje</Text>
 
-          <Text>
-            📍 Cliente: {availableRides[0].origin_lat.toFixed(4)}, {availableRides[0].origin_lng.toFixed(4)}
-          </Text>
+    <Text>
+      📍 Cliente: {ride.origin_lat?.toFixed?.(4) || "..."}, {ride.origin_lng?.toFixed?.(4) || "..."}
+    </Text>
 
-          <Text>
-            🏁 Destino: {availableRides[0].dest_lat.toFixed(4)}, {availableRides[0].dest_lng.toFixed(4)}
-          </Text>
+    <Text>
+      🏁 Destino: {ride.dest_lat?.toFixed?.(4) || "..."}, {ride.dest_lng?.toFixed?.(4) || "..."}
+    </Text>
 
-          <TouchableOpacity
-            style={styles.acceptBtn}
-            onPress={() => onAcceptRide(availableRides[0])}
-          >
-            <Text style={{ color:"#fff", textAlign:"center" }}>
-              Aceptar viaje
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
+    <TouchableOpacity
+      style={styles.acceptBtn}
+      onPress={() => onAcceptRide(ride)}
+    >
+      <Text style={{ color:"#fff", textAlign:"center" }}>
+        Aceptar viaje
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
       {/* STATUS */}
       {rideId && (
         <View style={styles.statusBox}>
