@@ -327,7 +327,7 @@ useEffect(() => {
 const [availableRides,setAvailableRides] = useState<any[]>([])
 
 useEffect(()=>{
-
+console.log("🔥 DRIVER EFFECT CORRIENDO")
 if(!driverMode) return
 
 const channel = supabase
