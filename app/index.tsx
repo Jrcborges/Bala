@@ -355,7 +355,9 @@ if(ride.status === "searching"){
 
 }
 )
-.subscribe()
+.subscribe((status) => {
+  console.log("📡 STATUS DEL CANAL:", status)
+})
 
 return ()=> supabase.removeChannel(channel)
 
