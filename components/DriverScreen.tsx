@@ -169,6 +169,8 @@ export default function DriverScreen({
             data={availableRides}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
+              
+              console.log(item)
 
               const distance = myLocation
                 ? calculateDistance(myLocation, {
