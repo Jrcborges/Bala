@@ -183,11 +183,11 @@ export default function DriverScreen({
                 <View style={styles.rideCard}>
 
                   <Text style={styles.name}>
-                    👤 {item.client_name || "Cliente"}
+                    👤 {item.name || "Cliente"}
                   </Text>
 
                   <Text style={styles.phone}>
-                    📞 {item.client_phone || "Sin teléfono"}
+                    📞 {item.phone || "Sin teléfono"}
                   </Text>
 
                   <Text>
@@ -206,7 +206,7 @@ export default function DriverScreen({
 
                   <TouchableOpacity
                     onPress={() =>
-                      Linking.openURL(`tel:${item.client_phone}`)
+                      Linking.openURL(`tel:${item.phone}`)
                     }
                   >
                     <Text style={styles.callBtn}>📞 Llamar</Text>
