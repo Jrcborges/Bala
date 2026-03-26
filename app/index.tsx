@@ -334,7 +334,7 @@ useEffect(() => {
   // 🔥 1. CARGAR VIAJES PENDIENTES (IMPORTANTÍSIMO)
   const loadExistingRides = async () => {
     const { data, error } = await supabase
-      .from("rides")
+      .from("rides_admin_view")
       .select("*")
       .eq("status", "searching") // 👈 aquí traes los pending
 
