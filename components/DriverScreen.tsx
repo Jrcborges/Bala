@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react"
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet, FlatList } from "react-native"
 import MapLibreGL from "@maplibre/maplibre-react-native"
 import * as Location from "expo-location"
+import * as Linking from "expo-linking"
 import { supabase } from "../lib/supabase"
 
 export default function DriverScreen({
@@ -17,157 +18,97 @@ export default function DriverScreen({
   const [smoothLocation, setSmoothLocation] = useState<any>(null)
   const [route, setRoute] = useState<any>(null)
 
-  /* 📡 GPS SIEMPRE ACTIVO */
-  useEffect(()=>{
+  /* 📡 GPS */
+  useEffect(() => {
+    let sub: Location.LocationSubscription  
 
-    let sub: Location.LocationSubscription
+    ;(async () => {  
+      const { status } = await Location.requestForegroundPermissionsAsync()  
+      if (status !== "granted") return  
 
-    ;(async()=>{
+      sub = await Location.watchPositionAsync(  
+        { accuracy: Location.Accuracy.High, distanceInterval: 5 },  
+        (loc) => {  
+          const coords = {  
+            latitude: loc.coords.latitude,  
+            longitude: loc.coords.longitude  
+          }  
 
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if(status !== "granted") return
+          setMyLocation(coords)  
 
-      sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 5 },
-        (loc)=>{
-          const coords = {
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude
-          }
+          cameraRef.current?.setCamera({  
+            centerCoordinate: [coords.longitude, coords.latitude],  
+            zoomLevel: 15,  
+            animationDuration: 500  
+          })  
+        }  
+      )  
+    })()  
 
-          setMyLocation(coords)
+    return () => sub?.remove()
+  }, [])
 
-          cameraRef.current?.setCamera({
-            centerCoordinate: [coords.longitude, coords.latitude],
-            zoomLevel: 15,
-            animationDuration: 500
-          })
-        }
-      )
+  /* 🚗 SUAVIZAR */
+  useEffect(() => {
+    if (!myLocation) return
 
-    })()
-
-    return ()=> sub?.remove()
-
-  },[])
-
-  /* 🚗 SUAVIZAR MOVIMIENTO */
-  useEffect(()=>{
-    if(!myLocation) return
-
-    setSmoothLocation(prev=>{
-      if(!prev) return myLocation
+    setSmoothLocation(prev => {
+      if (!prev) return myLocation
 
       return {
         latitude: prev.latitude + (myLocation.latitude - prev.latitude) * 0.2,
         longitude: prev.longitude + (myLocation.longitude - prev.longitude) * 0.2
       }
     })
-
-  },[myLocation])
-
-  /* 🛣️ RUTA DINÁMICA */
-  useEffect(()=>{
-
-    if(!myLocation) return
-
-    let target:any = null
-
-    // 👉 antes de aceptar → ir al cliente
-    if(!rideId && availableRides.length){
-      const r = availableRides[0]
-      target = { latitude: r.origin_lat, longitude: r.origin_lng }
-    }
-
-    // 👉 después de aceptar → ir al destino
-    if(rideId && availableRides.length){
-      const r = availableRides[0]
-      target = { latitude: r.dest_lat, longitude: r.dest_lng }
-    }
-
-    if(!target) return
-
-    const drawRoute = async ()=>{
-      try{
-        const url = `https://router.project-osrm.org/route/v1/driving/${myLocation.longitude},${myLocation.latitude};${target.longitude},${target.latitude}?overview=full&geometries=geojson`
-
-        const res = await fetch(url)
-        const data = await res.json()
-
-        if(!data.routes?.length) return
-
-        setRoute({
-          type:"Feature",
-          geometry:data.routes[0].geometry,
-          properties:{}
-        })
-
-      }catch{}
-    }
-
-    drawRoute()
-
-  },[myLocation, rideId, availableRides])
+  }, [myLocation])
 
   /* 📏 DISTANCIA */
-  const calculateDistance = (a:any, b:any)=>{
+  const calculateDistance = (a: any, b: any) => {
     const R = 6371
     const dLat = (b.latitude - a.latitude) * Math.PI / 180
     const dLon = (b.longitude - a.longitude) * Math.PI / 180
-    const x = dLon * Math.cos((a.latitude + b.latitude)/2 * Math.PI/180)
-    return Math.sqrt(dLat*dLat + x*x) * R
+    const x = dLon * Math.cos((a.latitude + b.latitude) / 2 * Math.PI / 180)
+    return Math.sqrt(dLat * dLat + x * x) * R
   }
 
-  /* 🧠 CAMBIO AUTOMÁTICO DE ESTADOS */
-  useEffect(()=>{
+  /* 🛣️ RUTA */
+  useEffect(() => {
+    if (!myLocation) return  
 
-    if(!rideId || !myLocation || !availableRides.length) return
+    let target: any = null  
 
-    const ride = availableRides[0]
+    if (!rideId && availableRides.length) {  
+      const r = availableRides[0]  
+      target = { latitude: r.origin_lat, longitude: r.origin_lng }  
+    }  
 
-    const client = {
-      latitude: ride.origin_lat,
-      longitude: ride.origin_lng
-    }
+    if (rideId && availableRides.length) {  
+      const r = availableRides[0]  
+      target = { latitude: r.dest_lat, longitude: r.dest_lng }  
+    }  
 
-    const dest = {
-      latitude: ride.dest_lat,
-      longitude: ride.dest_lng
-    }
+    if (!target) return  
 
-    const updateStatus = async (status:string)=>{
-      await supabase
-        .from("rides")
-        .update({ status })
-        .eq("id", rideId)
-    }
+    const drawRoute = async () => {  
+      try {  
+        const url = `https://router.project-osrm.org/route/v1/driving/${myLocation.longitude},${myLocation.latitude};${target.longitude},${target.latitude}?overview=full&geometries=geojson`  
 
-    const dClient = calculateDistance(myLocation, client)
-    const dDest = calculateDistance(myLocation, dest)
+        const res = await fetch(url)  
+        const data = await res.json()  
 
-    if(dClient < 0.5 && rideStatus === "accepted"){
-      updateStatus("arriving")
-    }
+        if (!data.routes?.length) return  
 
-    if(dClient < 0.05 && rideStatus === "arriving"){
-      updateStatus("in_trip")
-    }
+        setRoute({  
+          type: "Feature",  
+          geometry: data.routes[0].geometry,  
+          properties: {}  
+        })  
+      } catch {}  
+    }  
 
-    if(dDest < 0.05 && rideStatus === "in_trip"){
-      updateStatus("completed")
-    }
+    drawRoute()
+  }, [myLocation, rideId, availableRides])
 
-  },[myLocation, rideId])
-
-  /* 🔄 RESET */
-  useEffect(()=>{
-    if(rideStatus === "completed"){
-      setTimeout(()=>{
-        setRoute(null)
-      },3000)
-    }
-  },[rideStatus])
-const ride = availableRides[0]
   return (
     <View style={{ flex: 1 }}>
 
@@ -175,7 +116,6 @@ const ride = availableRides[0]
         style={{ flex: 1 }}
         mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
       >
-
         <MapLibreGL.Camera ref={cameraRef} />
 
         {/* 🚗 DRIVER */}
@@ -221,29 +161,72 @@ const ride = availableRides[0]
         <Text style={styles.headerText}>🚗 CONDUCTOR EN LÍNEA</Text>
       </View>
 
-      {/* CARD */}
-{!rideId && ride && (
-  <View style={styles.card}>
-    <Text style={styles.title}>🚨 Nuevo viaje</Text>
-    <Text>{JSON.stringify(ride)}</Text>
-    <Text>
-      📍 Cliente: {ride.origin_lat?.toFixed?.(4) || "..."}, {ride.origin_lng?.toFixed?.(4) || "..."}
-    </Text>
+      {/* 🔥 LISTA DE VIAJES */}
+      {!rideId && availableRides.length > 0 && (
+        <View style={styles.listContainer}>
 
-    <Text>
-      🏁 Destino: {ride.dest_lat?.toFixed?.(4) || "..."}, {ride.dest_lng?.toFixed?.(4) || "..."}
-    </Text>
+          <FlatList
+            data={availableRides}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => {
 
-    <TouchableOpacity
-      style={styles.acceptBtn}
-      onPress={() => onAcceptRide(ride)}
-    >
-      <Text style={{ color:"#fff", textAlign:"center" }}>
-        Aceptar viaje
-      </Text>
-    </TouchableOpacity>
-  </View>
-)}
+              const distance = myLocation
+                ? calculateDistance(myLocation, {
+                    latitude: item.origin_lat,
+                    longitude: item.origin_lng
+                  })
+                : 0
+
+              return (
+                <View style={styles.rideCard}>
+
+                  <Text style={styles.name}>
+                    👤 {item.client_name || "Cliente"}
+                  </Text>
+
+                  <Text style={styles.phone}>
+                    📞 {item.client_phone || "Sin teléfono"}
+                  </Text>
+
+                  <Text>
+                    📍 {item.origin_lat.toFixed(4)}, {item.origin_lng.toFixed(4)}
+                  </Text>
+
+                  <Text>
+                    🏁 {item.dest_lat.toFixed(4)}, {item.dest_lng.toFixed(4)}
+                  </Text>
+
+                  <Text>📏 {distance.toFixed(2)} km</Text>
+
+                  <Text style={styles.price}>
+                    💰 ${item.price?.toFixed(2)}
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={() =>
+                      Linking.openURL(`tel:${item.client_phone}`)
+                    }
+                  >
+                    <Text style={styles.callBtn}>📞 Llamar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.acceptBtn}
+                    onPress={() => onAcceptRide(item)}
+                  >
+                    <Text style={{ color: "#fff", textAlign: "center" }}>
+                      Aceptar viaje
+                    </Text>
+                  </TouchableOpacity>
+
+                </View>
+              )
+            }}
+          />
+
+        </View>
+      )}
+
       {/* STATUS */}
       {rideId && (
         <View style={styles.statusBox}>
@@ -262,73 +245,94 @@ const ride = availableRides[0]
 
 const styles = StyleSheet.create({
 
-  driverMarker:{
-    width:22,
-    height:22,
-    borderRadius:11,
-    backgroundColor:"#007AFF",
-    borderWidth:3,
-    borderColor:"#fff"
+  driverMarker: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#007AFF",
+    borderWidth: 3,
+    borderColor: "#fff"
   },
 
-  clientMarker:{
-    width:20,
-    height:20,
-    borderRadius:10,
-    backgroundColor:"#2ECC71",
-    borderWidth:3,
-    borderColor:"#fff"
+  clientMarker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#2ECC71",
+    borderWidth: 3,
+    borderColor: "#fff"
   },
 
-  header:{
-    position:"absolute",
-    top:60,
-    alignSelf:"center",
-    backgroundColor:"#007AFF",
-    padding:12,
-    borderRadius:10
+  header: {
+    position: "absolute",
+    top: 60,
+    alignSelf: "center",
+    backgroundColor: "#007AFF",
+    padding: 12,
+    borderRadius: 10
   },
 
-  headerText:{
-    color:"#fff",
-    fontWeight:"600"
+  headerText: {
+    color: "#fff",
+    fontWeight: "600"
   },
 
-  card:{
-    position:"absolute",
-    bottom:120,
-    alignSelf:"center",
-    backgroundColor:"#fff",
-    padding:15,
-    borderRadius:12,
-    width:"90%",
-    elevation:5
+  listContainer: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    maxHeight: 320
   },
 
-  title:{
-    fontWeight:"700",
-    marginBottom:5
+  rideCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 10,
+    marginVertical: 6,
+    padding: 15,
+    borderRadius: 12,
+    elevation: 4
   },
 
-  acceptBtn:{
-    marginTop:10,
-    backgroundColor:"#007AFF",
-    padding:12,
-    borderRadius:8
+  name: {
+    fontWeight: "700",
+    fontSize: 16
   },
 
-  statusBox:{
-    position:"absolute",
-    bottom:40,
-    alignSelf:"center",
-    backgroundColor:"#000",
-    padding:15,
-    borderRadius:12
+  phone: {
+    color: "#555",
+    marginBottom: 5
   },
 
-  statusText:{
-    color:"#fff",
-    fontSize:16
+  price: {
+    marginTop: 5,
+    fontWeight: "600",
+    color: "#27AE60"
+  },
+
+  callBtn: {
+    color: "#007AFF",
+    marginTop: 5
+  },
+
+  acceptBtn: {
+    marginTop: 10,
+    backgroundColor: "#007AFF",
+    padding: 12,
+    borderRadius: 8
+  },
+
+  statusBox: {
+    position: "absolute",
+    bottom: 40,
+    alignSelf: "center",
+    backgroundColor: "#000",
+    padding: 15,
+    borderRadius: 12
+  },
+
+  statusText: {
+    color: "#fff",
+    fontSize: 16
   }
 
 })
