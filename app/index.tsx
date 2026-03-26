@@ -326,42 +326,53 @@ useEffect(() => {
 /*--------Eschucha del chofer----------*/
 const [availableRides,setAvailableRides] = useState<any[]>([])
 
-useEffect(()=>{
-console.log("🔥 DRIVER EFFECT CORRIENDO")
-if(!driverMode) return
+useEffect(() => {
+  console.log("🔥 DRIVER EFFECT CORRIENDO")
 
-const channel = supabase
-.channel("drivers-search")
-.on(
-"postgres_changes",
-{
-event:"INSERT",
-schema:"public",
-table:"rides"
-},
-(payload)=>{
+  if (!driverMode) return
 
-const ride = payload.new
+  // 🔥 1. CARGAR VIAJES PENDIENTES (IMPORTANTÍSIMO)
+  const loadExistingRides = async () => {
+    const { data, error } = await supabase
+      .from("rides")
+      .select("*")
+      .eq("status", "searching") // 👈 aquí traes los pending
 
-if(ride.status === "searching"){
-  setAvailableRides(prev=>{
-    const updated = [ride, ...prev]
+    if (error) {
+      console.log("❌ Error cargando rides:", error)
+    } else {
+      console.log("📦 VIAJES EXISTENTES:", data)
+      setAvailableRides(data || [])
+    }
+  }
 
-    console.log("RIDES DISPONIBLES:", updated)
+  loadExistingRides()
 
-    return updated
-  })
-}
+  // 🔥 2. ESCUCHAR NUEVOS VIAJES EN TIEMPO REAL
+  const channel = supabase
+    .channel("drivers-search")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "rides"
+      },
+      (payload) => {
+        const ride = payload.new
 
-}
-)
-.subscribe((status) => {
-  console.log("📡 STATUS DEL CANAL:", status)
-})
+        if (ride.status === "searching") {
+          setAvailableRides(prev => [ride, ...prev])
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("📡 STATUS DEL CANAL:", status)
+    })
 
-return ()=> supabase.removeChannel(channel)
+  return () => supabase.removeChannel(channel)
 
-},[driverMode])
+}, [driverMode])
 /*funcion aceptar viaje*/
 const acceptRide = async (ride:any)=>{
 
