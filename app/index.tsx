@@ -486,54 +486,6 @@ const searchAddress = (text: string) => {
   }, 500) // 🔥 delay anti bloqueo
 }
 
-/* limpiar búsqueda */
-
-let query=text
-.toLowerCase()
-.replace(/entre/g," ")
-.replace(/ y /g," ")
-.replace(/esquina/g," ")
-.replace(/,/g," ")
-.replace(/\s+/g," ")
-.trim()
-
-query=query+" Santiago de Cuba"
-
-/* photon */
-
-const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
-
-const res=await fetch(url)
-
-const data=await res.json()
-
-const filtered=data.features.filter(
-(f:any)=>f.properties.street||f.properties.name
-)
-
-if(filtered.length===0){
-
-setResults([
-{
-properties:{name:"Dirección no encontrada"},
-geometry:{coordinates:[0,0]},
-error:true
-}
-])
-
-return
-
-}
-
-setResults(filtered)
-
-}catch{
-
-setResults([])
-
-}
-
-}
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
 
