@@ -94,29 +94,31 @@ const pedirViaje = async (vehicleType: string) => {
   
 /* ------------------ DETECTAR INTERSECCIÓN ------------------ */
 
-function parseIntersection(text: string) {
+function parseIntersection(text:string){
 
-  if (!text) return null
+if(!text) return null
 
-  text = text.toLowerCase()
+text=text.toLowerCase()
 
-  text = text
-    .replace("esquina", "")
-    .replace("entre", "")
-    .replace(/\s+y\s+/g, ",")
-    .replace(/\s+/g, " ")
-    .trim()
+text=text
+.replace("esquina","")
+.replace("entre","")
+.replace(" y ",",")
+.replace(/\s+/g," ")
+.trim()
 
-  const parts = text.split(",")
+let parts=text.split(",")
 
-  if (parts.length >= 2) {
-    return {
-      street1: parts[0].trim(),
-      street2: parts[1].trim()
-    }
-  }
+if(parts.length>=2){
 
-  return null
+return{
+street1:parts[0].trim(),
+street2:parts[1].trim()
+}
+
+}
+
+return null
 }
 
 /* ------------------ BUSCAR INTERSECCIÓN ------------------ */
@@ -399,126 +401,140 @@ setRideId(ride.id)   // activar tracking
 }
 /* ------------------ BUSCADOR ------------------ */
 
-let searchTimeout: any
+const searchAddress=async(text:string)=>{
 
-const searchAddress = (text: string) => {
+if(selecting==="pickup") setPickupText(text)
+else setDestText(text)
 
-  if (selecting === "pickup") setPickupText(text)
-  else setDestText(text)
+if(text.length<3){setResults([]);return}
 
-  clearTimeout(searchTimeout)
+try{
 
-  searchTimeout = setTimeout(async () => {
+/* detectar intersección */
 
-    if (text.length < 3) {
-      setResults([])
-      return
-    }
+const intersection=parseIntersection(text)
 
-    try {
+if(intersection){
 
-      // 🔥 Detectar intersección
-      const intersection = parseIntersection(text)
+const coords=await searchIntersection(
+intersection.street1,
+intersection.street2
+)
 
-      let query = ""
+if(coords){
 
-      if (intersection) {
-        query = `${intersection.street1} y ${intersection.street2}, Santiago de Cuba, Cuba`
-      } else {
-        query = `${text}, Santiago de Cuba, Cuba`
-      }
+setResults([])
 
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
-
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "tu-app"
-        }
-      })
-
-      const data = await res.json()
-
-      // 🔥 FILTRO SOLO SANTIAGO
-      let filtered = data.filter((item: any) =>
-        item.display_name.toLowerCase().includes("santiago de cuba")
-      )
-
-      // 🔥 FALLBACK (IMPORTANTE)
-      if (!filtered.length && intersection) {
-
-        const fallbackQuery = `${intersection.street1}, Santiago de Cuba, Cuba`
-
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=5`
-
-        const fallbackRes = await fetch(fallbackUrl, {
-          headers: { "User-Agent": "tu-app" }
-        })
-
-        const fallbackData = await fallbackRes.json()
-
-        filtered = fallbackData
-      }
-
-      if (!filtered.length) {
-        setResults([{
-          properties: { name: "Dirección no encontrada" },
-          error: true
-        }])
-        return
-      }
-
-      const formatted = filtered.map((item: any) => ({
-        geometry: {
-          coordinates: [parseFloat(item.lon), parseFloat(item.lat)]
-        },
-        properties: {
-          name: item.display_name
-        }
-      }))
-
-      setResults(formatted)
-
-    } catch (e) {
-      console.log("❌ error búsqueda:", e)
-      setResults([])
-    }
-
-  }, 500) // 🔥 delay anti bloqueo
+const location={
+latitude:coords.lat,
+longitude:coords.lng
 }
 
+if(selecting==="pickup") setPickup(location)
+
+if(selecting==="destination"){
+setDestination(location)
+await drawRoute(location)
+}
+
+cameraRef.current?.setCamera({
+centerCoordinate:[coords.lng,coords.lat],
+zoomLevel:16,
+animationDuration:800
+})
+
+return
+
+}
+
+}
+
+/* limpiar búsqueda */
+
+let query=text
+.toLowerCase()
+.replace(/entre/g," ")
+.replace(/ y /g," ")
+.replace(/esquina/g," ")
+.replace(/,/g," ")
+.replace(/\s+/g," ")
+.trim()
+
+query=query+" Santiago de Cuba"
+
+/* photon */
+
+const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
+
+const res=await fetch(url)
+
+const data=await res.json()
+
+const filtered=data.features.filter(
+(f:any)=>f.properties.street||f.properties.name
+)
+
+if(filtered.length===0){
+
+setResults([
+{
+properties:{name:"Dirección no encontrada"},
+geometry:{coordinates:[0,0]},
+error:true
+}
+])
+
+return
+
+}
+
+setResults(filtered)
+
+}catch{
+
+setResults([])
+
+}
+
+}
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
 
-const selectPlace = async (place: any) => {
+const selectPlace=async(place:any)=>{
 
-  if (place.error) return
+if(place.error) return
 
-  const coords = {
-    latitude: place.geometry.coordinates[1],
-    longitude: place.geometry.coordinates[0]
-  }
-
-  const name = place.properties.name
-
-  if (selecting === "pickup") {
-    setPickup(coords)
-    setPickupText(name)
-  }
-
-  if (selecting === "destination") {
-    setDestination(coords)
-    setDestText(name)
-    await drawRoute(coords)
-  }
-
-  cameraRef.current?.setCamera({
-    centerCoordinate: [coords.longitude, coords.latitude],
-    zoomLevel: 16,
-    animationDuration: 800
-  })
-
-  setResults([])
+const coords={
+latitude:place.geometry.coordinates[1],
+longitude:place.geometry.coordinates[0]
 }
+
+const name=
+place.properties.street||
+place.properties.name||
+"Ubicación"
+
+if(selecting==="pickup"){
+setPickup(coords)
+setPickupText(name)
+}
+
+if(selecting==="destination"){
+setDestination(coords)
+setDestText(name)
+await drawRoute(coords)
+}
+
+cameraRef.current?.setCamera({
+centerCoordinate:[coords.longitude,coords.latitude],
+zoomLevel:16,
+animationDuration:800
+})
+
+setResults([])
+
+}
+
 /* ------------------ RUTA ------------------ */
 
 const drawRoute=async(dest:Coords)=>{
