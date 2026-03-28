@@ -335,6 +335,32 @@ setRideId(ride.id)   // activar tracking
 }
 
 }
+/*esto es parte del buscador de calles */
+const getRealIntersection = async (lat:number, lon:number) => {
+
+  try {
+
+    const url = `https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&limit=5`
+
+    const res = await fetch(url)
+    const data = await res.json()
+
+    const streets = data.features
+      .map((f:any) => f.properties.street || f.properties.name)
+      .filter(Boolean)
+
+    const unique = [...new Set(streets)]
+
+    if (unique.length >= 2) {
+      return `${unique[0]} y ${unique[1]}`
+    }
+
+    return unique[0] || "Ubicación"
+
+  } catch {
+    return "Ubicación"
+  }
+}
 /* ------------------ BUSCADOR ------------------ */
 
 const searchAddress=async(text:string)=>{
@@ -424,7 +450,25 @@ return
 
 }
 
-setResults(filtered)
+const formatted = await Promise.all(
+  filtered.map(async (item:any) => {
+
+    const lat = item.geometry.coordinates[1]
+    const lon = item.geometry.coordinates[0]
+
+    const intersection = await getRealIntersection(lat, lon)
+
+    return {
+      geometry: item.geometry,
+      properties: {
+        name: intersection + ", Santiago de Cuba"
+      }
+    }
+
+  })
+)
+
+setResults(formatted)
 
 }catch{
 
