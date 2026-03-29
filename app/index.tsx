@@ -335,6 +335,54 @@ setRideId(ride.id)   // activar tracking
 }
 
 }
+
+/**/
+const parseIntersection = (text: string) => {
+  const clean = text
+    .toLowerCase()
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  // formatos soportados:
+  // "entre calle1 y calle2"
+  // "calle1 y calle2"
+  // "esquina calle1 y calle2"
+
+  let match = clean.match(/entre (.+) y (.+)/)
+  if (!match) match = clean.match(/esquina (.+) y (.+)/)
+  if (!match) match = clean.match(/^(.+) y (.+)$/)
+
+  if (!match) return null
+
+  return {
+    street1: match[1].trim(),
+    street2: match[2].trim()
+  }
+}
+/**/
+const searchIntersection = async (street1: string, street2: string) => {
+  try {
+    const query = `${street1} ${street2} Santiago de Cuba`
+
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=3`
+
+    const res = await fetch(url)
+    const data = await res.json()
+
+    if (!data.features.length) return null
+
+    const best = data.features[0]
+
+    return {
+      lat: best.geometry.coordinates[1],
+      lng: best.geometry.coordinates[0]
+    }
+
+  } catch {
+    return null
+  }
+}
 /*esto es parte del buscador de calles */
 const getRealIntersection = async (lat:number, lon:number) => {
 
