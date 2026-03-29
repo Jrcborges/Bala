@@ -471,7 +471,6 @@ return
 let query=text
 .toLowerCase()
 .replace(/entre/g," ")
-.replace(/ y /g," ")
 .replace(/esquina/g," ")
 .replace(/,/g," ")
 .replace(/\s+/g," ")
