@@ -363,21 +363,28 @@ const parseIntersection = (text: string) => {
 /**/
 const searchIntersection = async (street1: string, street2: string) => {
   try {
-    const query = `${street1} ${street2} Santiago de Cuba`
+    const queries = [
+      `${street1} y ${street2} Santiago de Cuba`,
+      `${street1} esquina ${street2} Santiago de Cuba`,
+      `${street1} ${street2} Santiago de Cuba`
+    ]
 
-    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=3`
+    for (let q of queries) {
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=3`
+      const res = await fetch(url)
+      const data = await res.json()
 
-    const res = await fetch(url)
-    const data = await res.json()
+      if (data.features.length) {
+        const best = data.features[0]
 
-    if (!data.features.length) return null
-
-    const best = data.features[0]
-
-    return {
-      lat: best.geometry.coordinates[1],
-      lng: best.geometry.coordinates[0]
+        return {
+          lat: best.geometry.coordinates[1],
+          lng: best.geometry.coordinates[0]
+        }
+      }
     }
+
+    return null
 
   } catch {
     return null
