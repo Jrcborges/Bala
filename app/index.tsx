@@ -1,3 +1,4 @@
+import AIChatPanel from "../components/AIChatPanel"
 import DriverScreen from "../components/DriverScreen"
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -642,7 +643,138 @@ animationDuration:800
 })
 
 }
+/*Panel i.a*/
+const geocodeAddress = async (text) => {
+  try {
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=1`
+    const res = await fetch(url)
+    const data = await res.json()
 
+    if (!data.features.length) return null
+
+    return {
+      latitude: data.features[0].geometry.coordinates[1],
+      longitude: data.features[0].geometry.coordinates[0]
+    }
+  } catch {
+    return null
+  }
+}
+
+const handleAIAction = async (ai) => {
+
+  const text = ai.data?.address?.toLowerCase() || ""
+
+  switch(ai.action){
+
+    case "set_pickup": {
+
+      if (text.includes("mi ubicacion") || text.includes("mi ubicación")) {
+        if (userLocation) {
+          setPickup(userLocation)
+
+          cameraRef.current?.setCamera({
+            centerCoordinate: [userLocation.longitude, userLocation.latitude],
+            zoomLevel: 15,
+            animationDuration: 800
+          })
+        }
+        return
+      }
+
+      const intersection = parseIntersection(text)
+
+      if (intersection) {
+        const coords = await searchIntersection(
+          intersection.street1,
+          intersection.street2
+        )
+
+        if (coords) {
+          const location = {
+            latitude: coords.lat,
+            longitude: coords.lng
+          }
+
+          setPickup(location)
+
+          cameraRef.current?.setCamera({
+            centerCoordinate: [coords.lng, coords.lat],
+            zoomLevel: 16,
+            animationDuration: 800
+          })
+
+          return
+        }
+      }
+
+      const coords = await geocodeAddress(text)
+
+      if (coords) {
+        setPickup(coords)
+
+        cameraRef.current?.setCamera({
+          centerCoordinate: [coords.longitude, coords.latitude],
+          zoomLevel: 15,
+          animationDuration: 800
+        })
+      }
+
+      break
+    }
+
+    case "set_destination": {
+
+      const intersection = parseIntersection(text)
+
+      if (intersection) {
+        const coords = await searchIntersection(
+          intersection.street1,
+          intersection.street2
+        )
+
+        if (coords) {
+          const location = {
+            latitude: coords.lat,
+            longitude: coords.lng
+          }
+
+          setDestination(location)
+
+          cameraRef.current?.setCamera({
+            centerCoordinate: [coords.lng, coords.lat],
+            zoomLevel: 16,
+            animationDuration: 800
+          })
+
+          await drawRoute(location)
+          return
+        }
+      }
+
+      const coords = await geocodeAddress(text)
+
+      if (coords) {
+        setDestination(coords)
+
+        cameraRef.current?.setCamera({
+          centerCoordinate: [coords.longitude, coords.latitude],
+          zoomLevel: 15,
+          animationDuration: 800
+        })
+
+        await drawRoute(coords)
+      }
+
+      break
+    }
+
+    case "confirm_ride":
+      await pedirViaje(ai.data?.vehicleType || "moto")
+      break
+  }
+}
+          
 /* ------------------ UI ------------------ */
 
 // 🔥 SEPARACIÓN TOTAL DE MODOS
