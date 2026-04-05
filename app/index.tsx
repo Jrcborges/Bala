@@ -768,8 +768,20 @@ return (
 
       {/* 🧾 PANEL PASAJERO */}
       {!rideId && (
-        <AIChatPanel onAIAction={handleAIAction} />
-      )}
+  <RidePanel
+    pickupText={pickupText}
+    destText={destText}
+    results={results}
+    distance={distance}
+    onPickupFocus={() => setSelecting("pickup")}
+    onDestFocus={() => setSelecting("destination")}
+    onSearch={searchAddress}
+    onSelectResult={selectPlace}
+    onConfirmPin={() => setMapSelectMode(true)}
+    onCancel={resetTrip}
+    onRequestRide={pedirViaje}
+  />
+)}
 
       {/* ☰ MENU */}
       <TouchableOpacity
