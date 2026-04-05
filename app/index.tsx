@@ -419,6 +419,23 @@ const getRealIntersection = async (lat:number, lon:number) => {
 /* ------------------ BUSCADOR ------------------ */
 
 
+M (MEconst fixSearchText = (text: string) => {
+  let t = text.toLowerCase().trim()
+
+  // quitar acentos
+  t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+
+  // correcciones comunes
+  t = t
+    .replace(/z/g, "s")
+    .replace(/ce/g, "se")
+    .replace(/ci/g, "si")
+    .replace(/k/g, "c")
+    .replace(/h/g, "")
+
+  return t
+}
+
 const searchAddress = async (text: string) => {
 
   if (selecting === "pickup") setPickupText(text)
@@ -431,11 +448,10 @@ const searchAddress = async (text: string) => {
 
   try {
 
-    // 🔥 1. DETECTAR INTERSECCIÓN (tu lógica sirve)
+    // 🔥 1. INTERSECCIONES
     const intersection = parseIntersection(text)
 
     if (intersection) {
-
       const coords = await searchIntersection(
         intersection.street1,
         intersection.street2
@@ -466,17 +482,36 @@ const searchAddress = async (text: string) => {
       }
     }
 
-    // 🔥 2. NOMINATIM (MEJOR QUE PHOTON)
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text + " Santiago de Cuba")}&limit=5`
+    // 🔥 2. BUSCAR NORMAL
+    const baseQuery = text + " Santiago de Cuba"
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(baseQuery)}&limit=5`
 
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "tu-app (tuemail@email.com)" // 🔥 IMPORTANTE
+        "User-Agent": "tu-app (tuemail@email.com)"
       }
     })
 
-    const data = await res.json()
+    let data = await res.json()
 
+    // 🔥 3. SI FALLA → FUZZY
+    if (!data.length) {
+
+      const fixedText = fixSearchText(text)
+
+      const retryUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fixedText + " Santiago de Cuba")}&limit=5`
+
+      const retryRes = await fetch(retryUrl, {
+        headers: {
+          "User-Agent": "tu-app (tuemail@email.com)"
+        }
+      })
+
+      data = await retryRes.json()
+    }
+
+    // 🔥 4. VALIDAR RESULTADOS
     if (!data.length) {
       setResults([
         {
@@ -489,24 +524,33 @@ const searchAddress = async (text: string) => {
       return
     }
 
-    // 🔥 3. FORMATEAR RESULTADOS
-    const formatted = data.map((item: any) => ({
-      geometry: {
-        coordinates: [parseFloat(item.lon), parseFloat(item.lat)]
-      },
-      properties: {
-        name: item.display_name
-      }
-    }))
+    // 🔥 5. FORMATEAR (ANTI-CRASH)
+    const formatted = data
+      .filter((item: any) => item.lat && item.lon)
+      .map((item: any) => ({
+        geometry: {
+          coordinates: [
+            Number(item.lon),
+            Number(item.lat)
+          ]
+        },
+        properties: {
+          name: item.display_name || "Ubicación"
+        }
+      }))
+
+    if (!formatted.length) {
+      setResults([])
+      return
+    }
 
     setResults(formatted)
 
   } catch (err) {
-    console.log(err)
+    console.log("❌ ERROR BUSCANDO:", err)
     setResults([])
   }
 }
-
 let timeout:any
 
 const searchAddressDebounced = (text:string)=>{
@@ -516,6 +560,7 @@ const searchAddressDebounced = (text:string)=>{
     searchAddress(text)
   }, 400)
 }
+   
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
 
@@ -760,7 +805,7 @@ return (
     distance={distance}
     onPickupFocus={() => setSelecting("pickup")}
     onDestFocus={() => setSelecting("destination")}
-    onSearch={searchAddress}
+    onSearch={searchAddressDebounced}
     onSelectResult={selectPlace}
     onConfirmPin={() => setMapSelectMode(true)}
     onCancel={resetTrip}
