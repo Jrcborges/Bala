@@ -419,7 +419,7 @@ const getRealIntersection = async (lat:number, lon:number) => {
 /* ------------------ BUSCADOR ------------------ */
 
 
-M (MEconst fixSearchText = (text: string) => {
+const fixSearchText = (text: string) => {
   let t = text.toLowerCase().trim()
 
   // quitar acentos
@@ -563,41 +563,60 @@ const searchAddressDebounced = (text:string)=>{
    
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
+const selectPlace = async (place:any) => {
 
-const selectPlace=async(place:any)=>{
+  if (
+    !place ||
+    !place.geometry ||
+    !place.geometry.coordinates ||
+    place.geometry.coordinates.length < 2
+  ) return
 
-if(place.error) return
+  if (place.error) return
 
-const coords={
-latitude:place.geometry.coordinates[1],
-longitude:place.geometry.coordinates[0]
+  const coords = {
+    latitude: place.geometry.coordinates[1],
+    longitude: place.geometry.coordinates[0]
+  }
+
+  if (!coords.latitude || !coords.longitude) return
+
+  const name =
+    place.properties?.street ||
+    place.properties?.name ||
+    "Ubicación"
+
+  if (selecting === "pickup") {
+    setPickup(coords)
+    setPickupText(name)
+  }
+
+  if (selecting === "destination") {
+    setDestination(coords)
+    setDestText(name)
+    await drawRoute(coords)
+  }
+
+  cameraRef.current?.setCamera({
+    centerCoordinate: [coords.longitude, coords.latitude],
+    zoomLevel: 16,
+    animationDuration: 800
+  })
+
+  setResults([])
+}
+const timeoutRef = useRef<any>(null)
+
+const searchAddressDebounced = (text:string)=>{
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current)
+  }
+
+  timeoutRef.current = setTimeout(()=>{
+    searchAddress(text)
+  }, 400)
 }
 
-const name=
-place.properties.street||
-place.properties.name||
-"Ubicación"
-
-if(selecting==="pickup"){
-setPickup(coords)
-setPickupText(name)
-}
-
-if(selecting==="destination"){
-setDestination(coords)
-setDestText(name)
-await drawRoute(coords)
-}
-
-cameraRef.current?.setCamera({
-centerCoordinate:[coords.longitude,coords.latitude],
-zoomLevel:16,
-animationDuration:800
-})
-
-setResults([])
-
-}
 
 /* ------------------ RUTA ------------------ */
 
