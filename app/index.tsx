@@ -418,118 +418,103 @@ const getRealIntersection = async (lat:number, lon:number) => {
 }
 /* ------------------ BUSCADOR ------------------ */
 
-const searchAddress=async(text:string)=>{
 
-if(selecting==="pickup") setPickupText(text)
-else setDestText(text)
+const searchAddress = async (text: string) => {
 
-if(text.length<3){setResults([]);return}
+  if (selecting === "pickup") setPickupText(text)
+  else setDestText(text)
 
-try{
+  if (text.length < 3) {
+    setResults([])
+    return
+  }
 
-/* detectar intersección */
+  try {
 
-const intersection=parseIntersection(text)
+    // 🔥 1. DETECTAR INTERSECCIÓN (tu lógica sirve)
+    const intersection = parseIntersection(text)
 
-if(intersection){
+    if (intersection) {
 
-const coords=await searchIntersection(
-intersection.street1,
-intersection.street2
-)
+      const coords = await searchIntersection(
+        intersection.street1,
+        intersection.street2
+      )
 
-if(coords){
+      if (coords) {
 
-setResults([])
+        const location = {
+          latitude: coords.lat,
+          longitude: coords.lng
+        }
 
-const location={
-latitude:coords.lat,
-longitude:coords.lng
-}
+        if (selecting === "pickup") setPickup(location)
 
-if(selecting==="pickup") setPickup(location)
+        if (selecting === "destination") {
+          setDestination(location)
+          await drawRoute(location)
+        }
 
-if(selecting==="destination"){
-setDestination(location)
-await drawRoute(location)
-}
+        cameraRef.current?.setCamera({
+          centerCoordinate: [coords.lng, coords.lat],
+          zoomLevel: 16,
+          animationDuration: 800
+        })
 
-cameraRef.current?.setCamera({
-centerCoordinate:[coords.lng,coords.lat],
-zoomLevel:16,
-animationDuration:800
-})
-
-return
-
-}
-
-}
-
-/* limpiar búsqueda */
-
-let query=text
-.toLowerCase()
-.replace(/entre/g," ")
-.replace(/esquina/g," ")
-.replace(/,/g," ")
-.replace(/\s+/g," ")
-.trim()
-
-query=query+" Santiago de Cuba"
-
-/* photon */
-
-const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
-
-const res=await fetch(url)
-
-const data=await res.json()
-
-const filtered=data.features.filter(
-(f:any)=>f.properties.street||f.properties.name
-)
-
-if(filtered.length===0){
-
-setResults([
-{
-properties:{name:"Dirección no encontrada"},
-geometry:{coordinates:[0,0]},
-error:true
-}
-])
-
-return
-
-}
-
-const formatted = await Promise.all(
-  filtered.map(async (item:any) => {
-
-    const lat = item.geometry.coordinates[1]
-    const lon = item.geometry.coordinates[0]
-
-    const intersection = await getRealIntersection(lat, lon)
-
-    return {
-      geometry: item.geometry,
-      properties: {
-        name: intersection + ", Santiago de Cuba"
+        setResults([])
+        return
       }
     }
 
-  })
-)
+    // 🔥 2. NOMINATIM (MEJOR QUE PHOTON)
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text + " Santiago de Cuba")}&limit=5`
 
-setResults(formatted)
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "tu-app (tuemail@email.com)" // 🔥 IMPORTANTE
+      }
+    })
 
-}catch{
+    const data = await res.json()
 
-setResults([])
+    if (!data.length) {
+      setResults([
+        {
+          name: "Dirección no encontrada",
+          lat: 0,
+          lon: 0,
+          error: true
+        }
+      ])
+      return
+    }
 
+    // 🔥 3. FORMATEAR RESULTADOS
+    const formatted = data.map((item: any) => ({
+      geometry: {
+        coordinates: [parseFloat(item.lon), parseFloat(item.lat)]
+      },
+      properties: {
+        name: item.display_name
+      }
+    }))
+
+    setResults(formatted)
+
+  } catch (err) {
+    console.log(err)
+    setResults([])
+  }
 }
 
+let timeout:any
+
+const searchAddressDebounced = (text:string)=>{
+  clearTimeout(timeout)
+
+  timeout = setTimeout(()=>{
+    searchAddress(text)
+  }, 400)
 }
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
