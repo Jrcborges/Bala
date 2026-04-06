@@ -551,15 +551,6 @@ const searchAddress = async (text: string) => {
     setResults([])
   }
 }
-let timeout:any
-
-const searchAddressDebounced = (text:string)=>{
-  clearTimeout(timeout)
-
-  timeout = setTimeout(()=>{
-    searchAddress(text)
-  }, 400)
-}
    
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
