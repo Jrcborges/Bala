@@ -23,10 +23,7 @@ MapLibreGL.setAccessToken(null)
 export default function Index(){
 
 const cameraRef=useRef<any>(null)
-/*Esto es parte de el sistema de búsqueda de calles*/
-const controllerRef = useRef<AbortController | null>(null)
-const timeoutRef = useRef<any>(null)
-/**/
+
 const [userLocation,setUserLocation]=useState<Coords|null>(null)
 const [pickup,setPickup]=useState<Coords|null>(null)
 const [destination,setDestination]=useState<Coords|null>(null)
@@ -108,7 +105,7 @@ const {status}=await Location.requestForegroundPermissionsAsync()
 if(status!=="granted") return
 
 sub=await Location.watchPositionAsync(
-{accuracy:Location.Accuracy.High,distanceInterval:15},
+{accuracy:Location.Accuracy.High,distanceInterval:5},
 (loc)=>{
 
 const coords={
@@ -340,220 +337,237 @@ setRideId(ride.id)   // activar tracking
 }
 
 /**/
+const parseIntersection = (text: string) => {
+  const clean = text
+    .toLowerCase()
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 
-const isIntersectionText = (text: string) => {
-  const t = text.toLowerCase()
-  return (
-    t.includes(" y ") ||
-    t.includes("entre ") ||
-    t.includes("esquina ")
-  )
+  // formatos soportados:
+  // "entre calle1 y calle2"
+  // "calle1 y calle2"
+  // "esquina calle1 y calle2"
+
+  let match = clean.match(/entre (.+) y (.+)/)
+  if (!match) match = clean.match(/esquina (.+) y (.+)/)
+  if (!match) match = clean.match(/^(.+) y (.+)$/)
+
+  if (!match) return null
+
+  return {
+    street1: match[1].trim(),
+    street2: match[2].trim()
+  }
 }
-
-
-/* ------------------ BUSCADOR ------------------ */
-const getIntersectionBetter = async (street1: string, street2: string) => {
-
+/**/
+const searchIntersection = async (street1: string, street2: string) => {
   try {
-    const url1 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street1)}&limit=3`
-    const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street2)}&limit=3`
+    const queries = [
+      `${street1} y ${street2} Santiago de Cuba`,
+      `${street1} esquina ${street2} Santiago de Cuba`,
+      `${street1} ${street2} Santiago de Cuba`
+    ]
 
-    const [r1, r2] = await Promise.all([fetch(url1), fetch(url2)])
+    for (let q of queries) {
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=3`
+      const res = await fetch(url)
+      const data = await res.json()
 
-    const d1 = await r1.json()
-    const d2 = await r2.json()
+      if (data.features.length) {
+        const best = data.features[0]
 
-    if (!d1.features.length || !d2.features.length) return null
-
-    let bestPoint = null
-    let minDistance = Infinity
-
-    for (let a of d1.features) {
-      for (let b of d2.features) {
-
-        const dx = a.geometry.coordinates[0] - b.geometry.coordinates[0]
-        const dy = a.geometry.coordinates[1] - b.geometry.coordinates[1]
-
-        const dist = dx * dx + dy * dy
-
-        if (dist < minDistance) {
-          minDistance = dist
-          bestPoint = {
-            lat: (a.geometry.coordinates[1] + b.geometry.coordinates[1]) / 2,
-            lng: (a.geometry.coordinates[0] + b.geometry.coordinates[0]) / 2
-          }
+        return {
+          lat: best.geometry.coordinates[1],
+          lng: best.geometry.coordinates[0]
         }
       }
     }
 
-    return bestPoint
+    return null
 
   } catch {
     return null
   }
 }
-/**/
-const searchAddress = async (text: string) => {
-
-  if (selecting === "pickup") setPickupText(text)
-  else setDestText(text)
-
-  if (text.length < 3) {
-    setResults([])
-    return
-  }
-
-  // 🔥 CANCELAR REQUEST ANTERIOR
-  if (controllerRef.current) {
-    controllerRef.current.abort()
-  }
-
-  const controller = new AbortController()
-  controllerRef.current = controller
+/*esto es parte del buscador de calles */
+const getRealIntersection = async (lat:number, lon:number) => {
 
   try {
 
-    // ===============================
-    // 🔥 INTERSECCIONES (SMART)
-    // ===============================
-    if (isIntersectionText(text) && text.length > 10) {
+    const url = `https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&limit=5`
 
-      const parts = text.toLowerCase().split(" y ")
-
-      if (parts.length >= 2) {
-
-        const coords = await getIntersectionBetter(parts[0], parts[1])
-
-        if (coords) {
-
-          const location = {
-            latitude: coords.lat,
-            longitude: coords.lng
-          }
-
-          if (selecting === "pickup") setPickup(location)
-
-          if (selecting === "destination") {
-            setDestination(location)
-            await drawRoute(location)
-          }
-
-          cameraRef.current?.setCamera({
-            centerCoordinate: [coords.lng, coords.lat],
-            zoomLevel: 16,
-            animationDuration: 800
-          })
-
-          setResults([])
-          return
-        }
-      }
-
-      // 🔥 fallback tipo Uber
-      setMapSelectMode(true)
-      return
-    }
-
-    // ===============================
-    // 🔥 BÚSQUEDA NORMAL
-    // ===============================
-
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5&viewbox=-75.9,20.1,-75.7,19.9&bounded=1`
-
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "tu-app"
-      }
-    })
-
+    const res = await fetch(url)
     const data = await res.json()
 
-    if (!data.length) {
-      setResults([
-        {
-          name: "No encontrado",
-          error: true
-        }
-      ])
-      return
+    const streets = data.features
+      .map((f:any) => f.properties.street || f.properties.name)
+      .filter(Boolean)
+
+    const unique = [...new Set(streets)]
+
+    if (unique.length >= 2) {
+      return `${unique[0]} y ${unique[1]}`
     }
 
-    const formatted = data
-      .filter((item: any) => item.lat && item.lon)
-      .map((item: any) => ({
-        geometry: {
-          coordinates: [
-            Number(item.lon),
-            Number(item.lat)
-          ]
-        },
-        properties: {
-          name: item.display_name
-        }
-      }))
+    return unique[0] || "Ubicación"
 
-    setResults(formatted)
-
-  } catch (err: any) {
-
-    if (err.name === "AbortError") return
-
-    console.log("❌ error real:", err)
+  } catch {
+    return "Ubicación"
   }
 }
-/* ------------------ SELECCIONAR RESULTADO ------------------ */
-const selectPlace = async (place:any) => {
+/* ------------------ BUSCADOR ------------------ */
 
-  if (
-    !place ||
-    !place.geometry ||
-    !place.geometry.coordinates ||
-    place.geometry.coordinates.length < 2
-  ) return
+const searchAddress=async(text:string)=>{
 
-  if (place.error) return
+if(selecting==="pickup") setPickupText(text)
+else setDestText(text)
 
-  const coords = {
-    latitude: place.geometry.coordinates[1],
-    longitude: place.geometry.coordinates[0]
-  }
+if(text.length<3){setResults([]);return}
 
-  if (!coords.latitude || !coords.longitude) return
+try{
 
-  const name =
-    place.properties?.street ||
-    place.properties?.name ||
-    "Ubicación"
+/* detectar intersección */
 
-  if (selecting === "pickup") {
-    setPickup(coords)
-    setPickupText(name)
-  }
+const intersection=parseIntersection(text)
 
-  if (selecting === "destination") {
-    setDestination(coords)
-    setDestText(name)
-    await drawRoute(coords)
-  }
+if(intersection){
 
-  cameraRef.current?.setCamera({
-    centerCoordinate: [coords.longitude, coords.latitude],
-    zoomLevel: 16,
-    animationDuration: 800
+const coords=await searchIntersection(
+intersection.street1,
+intersection.street2
+)
+
+if(coords){
+
+setResults([])
+
+const location={
+latitude:coords.lat,
+longitude:coords.lng
+}
+
+if(selecting==="pickup") setPickup(location)
+
+if(selecting==="destination"){
+setDestination(location)
+await drawRoute(location)
+}
+
+cameraRef.current?.setCamera({
+centerCoordinate:[coords.lng,coords.lat],
+zoomLevel:16,
+animationDuration:800
+})
+
+return
+
+}
+
+}
+
+/* limpiar búsqueda */
+
+let query=text
+.toLowerCase()
+.replace(/entre/g," ")
+.replace(/esquina/g," ")
+.replace(/,/g," ")
+.replace(/\s+/g," ")
+.trim()
+
+query=query+" Santiago de Cuba"
+
+/* photon */
+
+const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
+
+const res=await fetch(url)
+
+const data=await res.json()
+
+const filtered=data.features.filter(
+(f:any)=>f.properties.street||f.properties.name
+)
+
+if(filtered.length===0){
+
+setResults([
+{
+properties:{name:"Dirección no encontrada"},
+geometry:{coordinates:[0,0]},
+error:true
+}
+])
+
+return
+
+}
+
+const formatted = await Promise.all(
+  filtered.map(async (item:any) => {
+
+    const lat = item.geometry.coordinates[1]
+    const lon = item.geometry.coordinates[0]
+
+    const intersection = await getRealIntersection(lat, lon)
+
+    return {
+      geometry: item.geometry,
+      properties: {
+        name: intersection + ", Santiago de Cuba"
+      }
+    }
+
   })
+)
 
-  setResults([])
+setResults(formatted)
+
+}catch{
+
+setResults([])
+
 }
 
-const searchAddressDebounced = (text: string) => {
-  if (timeoutRef.current) clearTimeout(timeoutRef.current)
-
-  timeoutRef.current = setTimeout(() => {
-    searchAddress(text)
-  }, 300) // 🔥 más suave
 }
 
+/* ------------------ SELECCIONAR RESULTADO ------------------ */
+
+const selectPlace=async(place:any)=>{
+
+if(place.error) return
+
+const coords={
+latitude:place.geometry.coordinates[1],
+longitude:place.geometry.coordinates[0]
+}
+
+const name=
+place.properties.street||
+place.properties.name||
+"Ubicación"
+
+if(selecting==="pickup"){
+setPickup(coords)
+setPickupText(name)
+}
+
+if(selecting==="destination"){
+setDestination(coords)
+setDestText(name)
+await drawRoute(coords)
+}
+
+cameraRef.current?.setCamera({
+centerCoordinate:[coords.longitude,coords.latitude],
+zoomLevel:16,
+animationDuration:800
+})
+
+setResults([])
+
+}
 
 /* ------------------ RUTA ------------------ */
 
@@ -628,7 +642,7 @@ animationDuration:800
 })
 
 }
-          
+
 /* ------------------ UI ------------------ */
 
 // 🔥 SEPARACIÓN TOTAL DE MODOS
@@ -655,7 +669,6 @@ return (
         attributionEnabled={false}
         mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         onRegionDidChange={(e) => {
-        if (!mapSelectMode) return
           const center = e.geometry.coordinates
           setMapCenter({
             longitude: center[0],
@@ -755,20 +768,20 @@ return (
 
       {/* 🧾 PANEL PASAJERO */}
       {!rideId && (
-  <RidePanel
-    pickupText={pickupText}
-    destText={destText}
-    results={results}
-    distance={distance}
-    onPickupFocus={() => setSelecting("pickup")}
-    onDestFocus={() => setSelecting("destination")}
-    onSearch={searchAddressDebounced}
-    onSelectResult={selectPlace}
-    onConfirmPin={() => setMapSelectMode(true)}
-    onCancel={resetTrip}
-    onRequestRide={pedirViaje}
-  />
-)}
+        <RidePanel
+          pickupText={pickupText}
+          destText={destText}
+          results={results}
+          distance={distance}
+          onPickupFocus={() => setSelecting("pickup")}
+          onDestFocus={() => setSelecting("destination")}
+          onSearch={searchAddress}
+          onSelectResult={selectPlace}
+          onConfirmPin={() => setMapSelectMode(true)}
+          onCancel={resetTrip}
+          onRequestRide={pedirViaje}
+        />
+      )}
 
       {/* ☰ MENU */}
       <TouchableOpacity
