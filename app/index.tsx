@@ -418,118 +418,129 @@ const getRealIntersection = async (lat:number, lon:number) => {
 }
 /* ------------------ BUSCADOR ------------------ */
 
-const searchAddress=async(text:string)=>{
+const searchAddress = async (text: string) => {
 
-if(selecting==="pickup") setPickupText(text)
-else setDestText(text)
+  if (selecting === "pickup") setPickupText(text)
+  else setDestText(text)
 
-if(text.length<3){setResults([]);return}
+  if (text.length < 3) {
+    setResults([])
+    return
+  }
 
-try{
+  try {
 
-/* detectar intersección */
+    /* ------------------ INTERSECCIONES ------------------ */
 
-const intersection=parseIntersection(text)
+    const intersection = parseIntersection(text)
 
-if(intersection){
+    if (intersection) {
 
-const coords=await searchIntersection(
-intersection.street1,
-intersection.street2
-)
+      const coords = await searchIntersection(
+        intersection.street1,
+        intersection.street2
+      )
 
-if(coords){
+      if (coords) {
 
-setResults([])
+        setResults([])
 
-const location={
-latitude:coords.lat,
-longitude:coords.lng
-}
+        const location = {
+          latitude: coords.lat,
+          longitude: coords.lng
+        }
 
-if(selecting==="pickup") setPickup(location)
+        if (selecting === "pickup") setPickup(location)
 
-if(selecting==="destination"){
-setDestination(location)
-await drawRoute(location)
-}
+        if (selecting === "destination") {
+          setDestination(location)
+          await drawRoute(location)
+        }
 
-cameraRef.current?.setCamera({
-centerCoordinate:[coords.lng,coords.lat],
-zoomLevel:16,
-animationDuration:800
-})
+        cameraRef.current?.setCamera({
+          centerCoordinate: [coords.lng, coords.lat],
+          zoomLevel: 16,
+          animationDuration: 800
+        })
 
-return
-
-}
-
-}
-
-/* limpiar búsqueda */
-
-let query=text
-.toLowerCase()
-.replace(/entre/g," ")
-.replace(/esquina/g," ")
-.replace(/,/g," ")
-.replace(/\s+/g," ")
-.trim()
-
-query=query+" Santiago de Cuba"
-
-/* photon */
-
-const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=20.0247&lon=-75.8219`
-
-const res=await fetch(url)
-
-const data=await res.json()
-
-const filtered=data.features.filter(
-(f:any)=>f.properties.street||f.properties.name
-)
-
-if(filtered.length===0){
-
-setResults([
-{
-properties:{name:"Dirección no encontrada"},
-geometry:{coordinates:[0,0]},
-error:true
-}
-])
-
-return
-
-}
-
-const formatted = await Promise.all(
-  filtered.map(async (item:any) => {
-
-    const lat = item.geometry.coordinates[1]
-    const lon = item.geometry.coordinates[0]
-
-    const intersection = await getRealIntersection(lat, lon)
-
-    return {
-      geometry: item.geometry,
-      properties: {
-        name: intersection + ", Santiago de Cuba"
+        return
       }
     }
 
-  })
-)
+    /* ------------------ QUERY INTELIGENTE ------------------ */
 
-setResults(formatted)
+    let query = text
+      .toLowerCase()
+      .replace(/entre/g, " ")
+      .replace(/esquina/g, " ")
+      .replace(/,/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
 
-}catch{
+    // 🔥 SOLO agregar ciudad si el usuario no la puso
+    if (!query.includes("santiago")) {
+      query = query + " Santiago de Cuba"
+    }
 
-setResults([])
+    /* ------------------ UBICACIÓN DEL USUARIO ------------------ */
 
-}
+    const lat = userLocation?.latitude || 20.0247
+    const lon = userLocation?.longitude || -75.8219
 
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=${lat}&lon=${lon}`
+
+    const res = await fetch(url)
+    const data = await res.json()
+
+    const filtered = data.features.filter(
+      (f: any) => f.properties.street || f.properties.name
+    )
+
+    if (filtered.length === 0) {
+
+      setResults([
+        {
+          properties: { name: "Dirección no encontrada" },
+          geometry: { coordinates: [0, 0] },
+          error: true
+        }
+      ])
+
+      return
+    }
+
+    /* ------------------ FORMATEO PRO ------------------ */
+
+    const formatted = await Promise.all(
+      filtered.map(async (item: any) => {
+
+        const lat = item.geometry.coordinates[1]
+        const lon = item.geometry.coordinates[0]
+
+        const intersectionName = await getRealIntersection(lat, lon)
+
+        const parts = [
+          intersectionName,
+          item.properties.district,
+          item.properties.city,
+          item.properties.state
+        ].filter(Boolean)
+
+        return {
+          geometry: item.geometry,
+          properties: {
+            name: parts.join(", ")
+          }
+        }
+      })
+    )
+
+    setResults(formatted)
+
+  } catch (err) {
+    console.log("❌ Error búsqueda:", err)
+    setResults([])
+  }
 }
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
