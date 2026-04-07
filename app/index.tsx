@@ -340,105 +340,17 @@ setRideId(ride.id)   // activar tracking
 }
 
 /**/
-const parseIntersection = (text: string) => {
-  const clean = text
-    .toLowerCase()
-    .replace(/,/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
 
-  // formatos soportados:
-  // "entre calle1 y calle2"
-  // "calle1 y calle2"
-  // "esquina calle1 y calle2"
-
-  let match = clean.match(/entre (.+) y (.+)/)
-  if (!match) match = clean.match(/esquina (.+) y (.+)/)
-  if (!match) match = clean.match(/^(.+) y (.+)$/)
-
-  if (!match) return null
-
-  return {
-    street1: match[1].trim(),
-    street2: match[2].trim()
-  }
+const isIntersectionText = (text: string) => {
+  const t = text.toLowerCase()
+  return (
+    t.includes(" y ") ||
+    t.includes("entre ") ||
+    t.includes("esquina ")
+  )
 }
-/**/
-const searchIntersection = async (street1: string, street2: string) => {
-  try {
-    const queries = [
-      `${street1} y ${street2} Santiago de Cuba`,
-      `${street1} esquina ${street2} Santiago de Cuba`,
-      `${street1} ${street2} Santiago de Cuba`
-    ]
 
-    // 🔥 1. INTENTO NORMAL
-    for (let q of queries) {
-      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=3`
-      const res = await fetch(url)
-      const data = await res.json()
 
-      if (data.features.length) {
-        const best = data.features[0]
-
-        return {
-          lat: best.geometry.coordinates[1],
-          lng: best.geometry.coordinates[0]
-        }
-      }
-    }
-
-    // 🔥 2. FALLBACK PRO (PROMEDIO DE CALLES)
-    const url1 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street1 + " Santiago de Cuba")}&limit=1`
-    const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street2 + " Santiago de Cuba")}&limit=1`
-
-    const [res1, res2] = await Promise.all([fetch(url1), fetch(url2)])
-
-    const data1 = await res1.json()
-    const data2 = await res2.json()
-
-    if (data1.features.length && data2.features.length) {
-      const c1 = data1.features[0].geometry.coordinates
-      const c2 = data2.features[0].geometry.coordinates
-
-      return {
-        lat: (c1[1] + c2[1]) / 2,
-        lng: (c1[0] + c2[0]) / 2
-      }
-    }
-
-    return null
-
-  } catch {
-    return null
-  }
-}
-/*esto es parte del buscador de calles */
-const getRealIntersection = async (lat:number, lon:number) => {
-
-  try {
-
-    const url = `https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&limit=5`
-
-    const res = await fetch(url)
-    const data = await res.json()
-
-    const streets = data.features
-      .map((f:any) => f.properties.street || f.properties.name)
-      .filter(Boolean)
-
-    const unique = [...new Set(streets)]
-
-    if (unique.length >= 2) {
-      return `${unique[0]} y ${unique[1]}`
-    }
-
-    return unique[0] || "Ubicación"
-
-  } catch {
-    return "Ubicación"
-  }
-}
 /* ------------------ BUSCADOR ------------------ */
 const getIntersectionBetter = async (street1: string, street2: string) => {
 
