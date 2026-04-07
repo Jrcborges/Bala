@@ -655,6 +655,7 @@ return (
         attributionEnabled={false}
         mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         onRegionDidChange={(e) => {
+        if (!mapSelectMode) return
           const center = e.geometry.coordinates
           setMapCenter({
             longitude: center[0],
