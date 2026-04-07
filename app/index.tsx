@@ -458,7 +458,7 @@ const searchAddress = async (text: string) => {
     // 🔥 BÚSQUEDA NORMAL
     // ===============================
 
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5&viewbox=-75.9,20.1,-75.7,19.9&bounded=1`
 
     const res = await fetch(url, {
       signal: controller.signal,
@@ -551,7 +551,7 @@ const searchAddressDebounced = (text: string) => {
 
   timeoutRef.current = setTimeout(() => {
     searchAddress(text)
-  }, 800) // 🔥 más suave
+  }, 300) // 🔥 más suave
 }
 
 
