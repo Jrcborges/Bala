@@ -544,6 +544,7 @@ const selectPlace = async (place:any) => {
   })
 
   setResults([])
+}
 
 const searchAddressDebounced = (text: string) => {
   if (timeoutRef.current) clearTimeout(timeoutRef.current)
