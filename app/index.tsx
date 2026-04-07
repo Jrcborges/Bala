@@ -630,6 +630,7 @@ await drawRoute(mapCenter)
 }
 
 setMapSelectMode(false)
+setMapCenter(null)
 
 }
 
