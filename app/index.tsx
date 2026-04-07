@@ -108,7 +108,7 @@ const {status}=await Location.requestForegroundPermissionsAsync()
 if(status!=="granted") return
 
 sub=await Location.watchPositionAsync(
-{accuracy:Location.Accuracy.High,distanceInterval:5},
+{accuracy:Location.Accuracy.High,distanceInterval:15},
 (loc)=>{
 
 const coords={
