@@ -384,7 +384,28 @@ const searchIntersection = async (street1: string, street2: string) => {
       }
     }
 
-    return null
+    // 🔥 FALLBACK: buscar calles por separado
+try {
+  const url1 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street1 + " Santiago de Cuba")}&limit=1`
+  const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street2 + " Santiago de Cuba")}&limit=1`
+
+  const [res1, res2] = await Promise.all([fetch(url1), fetch(url2)])
+
+  const data1 = await res1.json()
+  const data2 = await res2.json()
+
+  if (data1.features.length && data2.features.length) {
+    const c1 = data1.features[0].geometry.coordinates
+    const c2 = data2.features[0].geometry.coordinates
+
+    return {
+      lat: (c1[1] + c2[1]) / 2,
+      lng: (c1[0] + c2[0]) / 2
+    }
+  }
+} catch {}
+
+return null
 
   } catch {
     return null
