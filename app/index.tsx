@@ -418,25 +418,6 @@ const getRealIntersection = async (lat:number, lon:number) => {
 }
 /* ------------------ BUSCADOR ------------------ */
 
-
-const fixSearchText = (text: string) => {
-  let t = text.toLowerCase().trim()
-
-  // quitar acentos
-  t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-
-  // correcciones comunes
-  t = t
-    .replace(/z/g, "s")
-    .replace(/ce/g, "se")
-    .replace(/ci/g, "si")
-    .replace(/k/g, "c")
-    .replace(/h/g, "")
-
-  return t
-}
-
-
 const searchAddress = async (text: string) => {
 
   if (selecting === "pickup") setPickupText(text)
@@ -449,7 +430,7 @@ const searchAddress = async (text: string) => {
 
   try {
 
-    // 🔥 DETECTAR INTERSECCIÓN (MEJORADO)
+    // 🔥 DETECTAR INTERSECCIÓN
     const isIntersection =
       text.includes(" y ") ||
       text.includes("entre ") ||
@@ -457,7 +438,7 @@ const searchAddress = async (text: string) => {
 
     if (isIntersection) {
 
-      // 🔥 EVITA LAG (NO BUSCAR SI ES MUY CORTO)
+      // 🔥 evita lag cuando escriben poco
       if (text.length < 8) return
 
       const intersection = parseIntersection(text)
@@ -494,7 +475,7 @@ const searchAddress = async (text: string) => {
       }
     }
 
-    // 🔥 BUSCADOR NORMAL (NOMINATIM)
+    // 🔥 BUSQUEDA NORMAL
     const baseQuery = text + " Santiago de Cuba"
 
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(baseQuery)}&limit=5`
@@ -507,7 +488,7 @@ const searchAddress = async (text: string) => {
 
     let data = await res.json()
 
-    // 🔥 SI FALLA → CORRECCIÓN INTELIGENTE
+    // 🔥 REINTENTO INTELIGENTE
     if (!data.length) {
 
       const fixedText = fixSearchText(text)
@@ -523,7 +504,7 @@ const searchAddress = async (text: string) => {
       data = await retryRes.json()
     }
 
-    // 🔥 SI NO HAY RESULTADOS
+    // 🔥 SIN RESULTADOS
     if (!data.length) {
       setResults([
         {
@@ -536,7 +517,7 @@ const searchAddress = async (text: string) => {
       return
     }
 
-    // 🔥 FORMATEAR RESULTADOS (ANTI-CRASH)
+    // 🔥 FORMATEO SEGURO
     const formatted = data
       .filter((item: any) => item.lat && item.lon)
       .map((item: any) => ({
@@ -551,11 +532,6 @@ const searchAddress = async (text: string) => {
         }
       }))
 
-    if (!formatted.length) {
-      setResults([])
-      return
-    }
-
     setResults(formatted)
 
   } catch (err) {
@@ -563,7 +539,6 @@ const searchAddress = async (text: string) => {
     setResults([])
   }
 }
-
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
 const selectPlace = async (place:any) => {
 
