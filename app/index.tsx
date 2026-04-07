@@ -23,7 +23,10 @@ MapLibreGL.setAccessToken(null)
 export default function Index(){
 
 const cameraRef=useRef<any>(null)
-
+/*Esto es parte de el sistema de búsqueda de calles*/
+const controllerRef = useRef<AbortController | null>(null)
+const timeoutRef = useRef<any>(null)
+/**/
 const [userLocation,setUserLocation]=useState<Coords|null>(null)
 const [pickup,setPickup]=useState<Coords|null>(null)
 const [destination,setDestination]=useState<Coords|null>(null)
@@ -437,7 +440,47 @@ const getRealIntersection = async (lat:number, lon:number) => {
   }
 }
 /* ------------------ BUSCADOR ------------------ */
+const getIntersectionBetter = async (street1: string, street2: string) => {
 
+  try {
+    const url1 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street1)}&limit=3`
+    const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(street2)}&limit=3`
+
+    const [r1, r2] = await Promise.all([fetch(url1), fetch(url2)])
+
+    const d1 = await r1.json()
+    const d2 = await r2.json()
+
+    if (!d1.features.length || !d2.features.length) return null
+
+    let bestPoint = null
+    let minDistance = Infinity
+
+    for (let a of d1.features) {
+      for (let b of d2.features) {
+
+        const dx = a.geometry.coordinates[0] - b.geometry.coordinates[0]
+        const dy = a.geometry.coordinates[1] - b.geometry.coordinates[1]
+
+        const dist = dx * dx + dy * dy
+
+        if (dist < minDistance) {
+          minDistance = dist
+          bestPoint = {
+            lat: (a.geometry.coordinates[1] + b.geometry.coordinates[1]) / 2,
+            lng: (a.geometry.coordinates[0] + b.geometry.coordinates[0]) / 2
+          }
+        }
+      }
+    }
+
+    return bestPoint
+
+  } catch {
+    return null
+  }
+}
+/**/
 const searchAddress = async (text: string) => {
 
   if (selecting === "pickup") setPickupText(text)
@@ -448,26 +491,26 @@ const searchAddress = async (text: string) => {
     return
   }
 
+  // 🔥 CANCELAR REQUEST ANTERIOR
+  if (controllerRef.current) {
+    controllerRef.current.abort()
+  }
+
+  const controller = new AbortController()
+  controllerRef.current = controller
+
   try {
 
-    // 🔥 DETECTAR INTERSECCIÓN
-    const isIntersection =
-      text.includes(" y ") ||
-      text.includes("entre ") ||
-      text.includes("esquina ")
+    // ===============================
+    // 🔥 INTERSECCIONES (SMART)
+    // ===============================
+    if (isIntersectionText(text) && text.length > 10) {
 
-    if (isIntersection) {
+      const parts = text.toLowerCase().split(" y ")
 
-      // 🔥 evita lag cuando escriben poco
-      if (text.length < 8) return
+      if (parts.length >= 2) {
 
-      const intersection = parseIntersection(text)
-
-      if (intersection) {
-        const coords = await searchIntersection(
-          intersection.street1,
-          intersection.street2
-        )
+        const coords = await getIntersectionBetter(parts[0], parts[1])
 
         if (coords) {
 
@@ -493,51 +536,37 @@ const searchAddress = async (text: string) => {
           return
         }
       }
+
+      // 🔥 fallback tipo Uber
+      setMapSelectMode(true)
+      return
     }
 
-    // 🔥 BUSQUEDA NORMAL
-    const baseQuery = text + " Santiago de Cuba"
+    // ===============================
+    // 🔥 BÚSQUEDA NORMAL
+    // ===============================
 
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(baseQuery)}&limit=5`
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`
 
     const res = await fetch(url, {
+      signal: controller.signal,
       headers: {
-        "User-Agent": "tu-app (tuemail@email.com)"
+        "User-Agent": "tu-app"
       }
     })
 
-    let data = await res.json()
+    const data = await res.json()
 
-    // 🔥 REINTENTO INTELIGENTE
-    if (!data.length) {
-
-      const fixedText = fixSearchText(text)
-
-      const retryUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fixedText + " Santiago de Cuba")}&limit=5`
-
-      const retryRes = await fetch(retryUrl, {
-        headers: {
-          "User-Agent": "tu-app (tuemail@email.com)"
-        }
-      })
-
-      data = await retryRes.json()
-    }
-
-    // 🔥 SIN RESULTADOS
     if (!data.length) {
       setResults([
         {
-          name: "Dirección no encontrada",
-          lat: 0,
-          lon: 0,
+          name: "No encontrado",
           error: true
         }
       ])
       return
     }
 
-    // 🔥 FORMATEO SEGURO
     const formatted = data
       .filter((item: any) => item.lat && item.lon)
       .map((item: any) => ({
@@ -548,15 +577,17 @@ const searchAddress = async (text: string) => {
           ]
         },
         properties: {
-          name: item.display_name || "Ubicación"
+          name: item.display_name
         }
       }))
 
     setResults(formatted)
 
-  } catch (err) {
-    console.log("❌ ERROR BUSCANDO:", err)
-    setResults([])
+  } catch (err: any) {
+
+    if (err.name === "AbortError") return
+
+    console.log("❌ error real:", err)
   }
 }
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
@@ -604,14 +635,12 @@ const selectPlace = async (place:any) => {
 }
 const timeoutRef = useRef<any>(null)
 
-const searchAddressDebounced = (text:string)=>{
-  if (timeoutRef.current) {
-    clearTimeout(timeoutRef.current)
-  }
+const searchAddressDebounced = (text: string) => {
+  if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
-  timeoutRef.current = setTimeout(()=>{
+  timeoutRef.current = setTimeout(() => {
     searchAddress(text)
-  }, 400)
+  }, 800) // 🔥 más suave
 }
 
 
