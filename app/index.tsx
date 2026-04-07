@@ -520,11 +520,106 @@ const searchAddress = async (text: string) => {
           lon: 0,
           error: true
         }
+const searchAddress = async (text: string) => {
+
+  if (selecting === "pickup") setPickupText(text)
+  else setDestText(text)
+
+  if (text.length < 3) {
+    setResults([])
+    return
+  }
+
+  try {
+
+    // 🔥 DETECTAR INTERSECCIÓN (MEJORADO)
+    const isIntersection =
+      text.includes(" y ") ||
+      text.includes("entre ") ||
+      text.includes("esquina ")
+
+    if (isIntersection) {
+
+      // 🔥 EVITA LAG (NO BUSCAR SI ES MUY CORTO)
+      if (text.length < 8) return
+
+      const intersection = parseIntersection(text)
+
+      if (intersection) {
+        const coords = await searchIntersection(
+          intersection.street1,
+          intersection.street2
+        )
+
+        if (coords) {
+
+          const location = {
+            latitude: coords.lat,
+            longitude: coords.lng
+          }
+
+          if (selecting === "pickup") setPickup(location)
+
+          if (selecting === "destination") {
+            setDestination(location)
+            await drawRoute(location)
+          }
+
+          cameraRef.current?.setCamera({
+            centerCoordinate: [coords.lng, coords.lat],
+            zoomLevel: 16,
+            animationDuration: 800
+          })
+
+          setResults([])
+          return
+        }
+      }
+    }
+
+    // 🔥 BUSCADOR NORMAL (NOMINATIM)
+    const baseQuery = text + " Santiago de Cuba"
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(baseQuery)}&limit=5`
+
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "tu-app (tuemail@email.com)"
+      }
+    })
+
+    let data = await res.json()
+
+    // 🔥 SI FALLA → CORRECCIÓN INTELIGENTE
+    if (!data.length) {
+
+      const fixedText = fixSearchText(text)
+
+      const retryUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fixedText + " Santiago de Cuba")}&limit=5`
+
+      const retryRes = await fetch(retryUrl, {
+        headers: {
+          "User-Agent": "tu-app (tuemail@email.com)"
+        }
+      })
+
+      data = await retryRes.json()
+    }
+
+    // 🔥 SI NO HAY RESULTADOS
+    if (!data.length) {
+      setResults([
+        {
+          name: "Dirección no encontrada",
+          lat: 0,
+          lon: 0,
+          error: true
+        }
       ])
       return
     }
 
-    // 🔥 5. FORMATEAR (ANTI-CRASH)
+    // 🔥 FORMATEAR RESULTADOS (ANTI-CRASH)
     const formatted = data
       .filter((item: any) => item.lat && item.lon)
       .map((item: any) => ({
@@ -551,7 +646,6 @@ const searchAddress = async (text: string) => {
     setResults([])
   }
 }
-   
 
 /* ------------------ SELECCIONAR RESULTADO ------------------ */
 const selectPlace = async (place:any) => {
