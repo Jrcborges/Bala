@@ -28,17 +28,6 @@ export default function RidePanel({
   onRequestRide,
 }: any) {
   const panelY = useRef(new Animated.Value(height * 0.65)).current;
-  const [transport, setTransport] = useState<"moto" | "carro" | "triciclo">("moto");
-
-  /* Tarifas dinámicas */
-  const rates = { moto: 0.35, carro: 0.6, triciclo: 0.45 };
-  const prices :Record<"moto"|"carro"|"triciclo",string>= 
-  {
-    moto: (distance * rates.moto).toFixed(2),
-    carro: (distance * rates.carro).toFixed(2),
-    triciclo: (distance * rates.triciclo).toFixed(2),
-  };
-
   /* Panel arrastrable */
   const panResponder = useRef(
     PanResponder.create({
