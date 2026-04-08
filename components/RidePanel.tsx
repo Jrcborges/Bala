@@ -28,6 +28,7 @@ export default function RidePanel({
   onRequestRide,
 }: any) {
   const panelY = useRef(new Animated.Value(height * 0.65)).current;
+const [transport, setTransport] = useState<"moto" | "carro" | "triciclo">("moto");
   /* Panel arrastrable */
   const panResponder = useRef(
     PanResponder.create({
