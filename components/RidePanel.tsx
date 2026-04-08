@@ -1,3 +1,4 @@
+import TransportSelector from "./TransportSelector"
 import React, { useRef, useState } from "react";
 import {
     Animated,
@@ -108,24 +109,12 @@ export default function RidePanel({
           <Text style={styles.actionText}>📍 Fijar ubicación en el mapa</Text>
         </TouchableOpacity>
 
-        {/* TRANSPORTE Y PRECIO */}
-        <View style={styles.transportBox}>
-          <Text style={styles.transportTitle}>Tipo de transporte</Text>
-          <View style={styles.transportRow}>
-            {(["moto", "carro", "triciclo"]as const).map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.transportButton, transport === t && styles.transportActive]}
-                onPress={() => setTransport(t)}
-              >
-                <Text style={styles.transportText}>
-                  {t === "moto" ? "🛵 Moto" : t === "carro" ? "🚗 Carro" : "🛺 Triciclo"}
-                </Text>
-                {distance > 0 && <Text style={styles.price}>${prices[t]}</Text>}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/*Tranposrte colección*/}
+        <TransportSelector
+  distance={distance}
+  selected={transport}
+  onSelect={setTransport}
+/>
         {/*Pedir viaje*/}
         {distance > 0 && (
          <TouchableOpacity style={styles.requestBtn} onPress={() => onRequestRide(transport)}>
