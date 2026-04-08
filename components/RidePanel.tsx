@@ -90,7 +90,13 @@ export default function RidePanel({
               placeholder="Destino"
               placeholderTextColor="#aaa"
               value={destText}
-              onFocus={onDestFocus}
+              onFocus={() => {
+  onPickupFocus()
+  Animated.spring(panelY, {
+    toValue: 100,
+    useNativeDriver: false
+  }).start()
+}}
               onChangeText={onSearch}
               style={styles.input}
             />
@@ -191,7 +197,7 @@ const styles = StyleSheet.create({
   shadowOpacity:0.3,
   shadowRadius:5,
   elevation:5,
-  };
+  },
   transportActive: { backgroundColor: "#FF6A00" },
   transportText: { color: "#fff", fontSize: 16, fontWeight: "500" },
   price: { color: "#fff", marginTop: 5, fontWeight: "bold" },
