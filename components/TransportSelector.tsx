@@ -1,21 +1,22 @@
+import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+
 export default function TransportSelector({
   distance,
   selected,
   onSelect,
 }: {
-  distance: number
-  selected: string
-  onSelect: (t: "moto" | "carro" | "triciclo") => void
+  distance: number;
+  selected: "moto" | "carro" | "triciclo";
+  onSelect: (t: "moto" | "carro" | "triciclo") => void;
 }) {
-
-  const rates = { moto: 0.35, carro: 0.6, triciclo: 0.45 }
+  const rates = { moto: 0.35, carro: 0.6, triciclo: 0.45 };
 
   const prices = {
     moto: (distance * rates.moto).toFixed(2),
     carro: (distance * rates.carro).toFixed(2),
     triciclo: (distance * rates.triciclo).toFixed(2),
-  }
+  };
 
   return (
     <View>
@@ -47,5 +48,5 @@ export default function TransportSelector({
         ))}
       </View>
     </View>
-  )
+  );
 }
