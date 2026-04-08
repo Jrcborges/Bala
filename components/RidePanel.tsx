@@ -70,7 +70,13 @@ export default function RidePanel({
               placeholder="Origen"
               placeholderTextColor="#aaa"
               value={pickupText}
-              onFocus={onPickupFocus}
+              onFocus={() => {
+  onPickupFocus()
+  Animated.spring(panelY, {
+    toValue: 100,
+    useNativeDriver: false
+  }).start()
+}}
               onChangeText={onSearch}
               style={styles.input}
             />
