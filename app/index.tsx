@@ -781,18 +781,24 @@ return (
       {/* 🧾 PANEL PASAJERO */}
       {!rideId && (
         <RidePanel
-          pickupText={pickupText}
-          destText={destText}
-          results={results}
-          distance={distance}
-          onPickupFocus={() => setSelecting("pickup")}
-          onDestFocus={() => setSelecting("destination")}
-          onSearch={searchAddress}
-          onSelectResult={selectPlace}
-          onConfirmPin={() => setMapSelectMode(true)}
-          onCancel={resetTrip}
-          onRequestRide={pedirViaje}
-        />
+  pickupText={pickupText}
+  destText={destText}
+  results={results}
+  distance={distance}
+  onPickupFocus={() => {
+    setSelecting("pickup")
+    setResults([]) // 🔥 limpia resultados
+  }}
+  onDestFocus={() => {
+    setSelecting("destination")
+    setResults([]) // 🔥 limpia resultados
+  }}
+  onSearch={searchAddress}
+  onSelectResult={selectPlace}
+  onConfirmPin={() => setMapSelectMode(true)}
+  onCancel={resetTrip}
+  onRequestRide={pedirViaje}
+/>
       )}
 
       {/* ☰ MENU */}
