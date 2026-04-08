@@ -82,7 +82,7 @@ const [transport, setTransport] = useState<"moto" | "carro" | "triciclo">("moto"
               placeholderTextColor="#aaa"
               value={destText}
               onFocus={() => {
-  onPickupFocus()
+  onDestFocus()
   Animated.spring(panelY, {
     toValue: 100,
     useNativeDriver: false
