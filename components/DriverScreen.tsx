@@ -17,7 +17,39 @@ export default function DriverScreen({
   const [myLocation, setMyLocation] = useState<any>(null)
   const [smoothLocation, setSmoothLocation] = useState<any>(null)
   const [route, setRoute] = useState<any>(null)
+  const [location, setLocation] = useState(null)
 
+  useEffect(() => {
+  let interval = null
+
+  const startTracking = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync()
+    if (status !== "granted") return
+
+    interval = setInterval(async () => {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High
+      })
+
+      setLocation(loc.coords)
+
+      // 🔥 guardar en Supabase
+      await supabase
+        .from("drivers")
+        .update({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude
+        })
+        .eq("id", user.id) // asegúrate que tienes user.id
+    }, 3000) // cada 3 segundos
+  }
+
+  startTracking()
+
+  return () => {
+    if (interval) clearInterval(interval)
+  }
+}, [])
   /* 📡 GPS */
   useEffect(() => {
     let sub: Location.LocationSubscription  
